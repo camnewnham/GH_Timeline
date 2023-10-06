@@ -1,4 +1,5 @@
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Special;
 using Grasshopper.Kernel.Types;
 using System;
 using System.Diagnostics;
@@ -7,7 +8,7 @@ using System.Windows.Forms;
 
 namespace Plugin
 {
-    public class TimelineComponent : GH_Param<GH_Number>
+    public class TimelineComponent : GH_NumberSlider
     {
         public override Guid ComponentGuid => new Guid("84e977ef-b06d-41e3-aa6d-c6f0f646cef3");
         protected override System.Drawing.Bitmap Icon => null;
@@ -15,14 +16,26 @@ namespace Plugin
         public readonly Timeline Timeline;
         public override GH_ParamKind Kind => GH_ParamKind.floating;
 
-        public TimelineComponent()
-          : base(new GH_InstanceDescription(
-                "Timeline", "Time",
-            "Displays keyframes for animating your definition.",
-            "Display", "Timeline"))
+        public TimelineComponent() : base()
         {
             Timeline = new Timeline();
+            Slider.DecimalPlaces = 8;
+            Slider.Minimum = 0;
+            Slider.Maximum = 1;
+            Slider.ValueChanged += OnSliderValueChanged;
         }
+
+        private void OnSliderValueChanged(object sender, Grasshopper.GUI.Base.GH_SliderEventArgs e)
+        {
+            Timeline.Time = (double)e.Slider.Value;
+        }
+
+        public override string Name => "Timeline";
+        public override string NickName => "Timeline";
+        public override string Description => "Displays keyframes for animating your definition.";
+
+        public override string Category => "Display";
+        public override string SubCategory => "Timeline";
 
         private bool m_recording = false;
         private Action stopRecordingAction;
@@ -99,13 +112,23 @@ namespace Plugin
         {
             Menu_AppendWireDisplay(menu);
             Menu_AppendDisconnectWires(menu);
-            GH_DocumentObject.Menu_AppendSeparator(menu);
+            Menu_AppendSeparator(menu);
 
             Menu_AppendItem(menu, Recording ? "Recording" : "Not Recording", (obj, arg) =>
             {
                 Recording = !Recording;
                 Grasshopper.Instances.ActiveCanvas.Invalidate();
             }, true, Recording);
+
+            Menu_AppendItem(menu, "Animate…", (obj, arg) =>
+            {
+                GH_SliderAnimator gH_SliderAnimator = new GH_SliderAnimator(this);
+                if (gH_SliderAnimator.SetupAnimationProperties())
+                {
+                    Recording = false;
+                    gH_SliderAnimator.StartAnimation();
+                }
+            });
         }
 
         public override void AddedToDocument(GH_Document document)

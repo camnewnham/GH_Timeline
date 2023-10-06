@@ -12,7 +12,7 @@ namespace Plugin
     {
         protected override Size MinimumSize => new Size(100, 64);
         protected override Padding SizingBorders => new Padding(6);
-        public override bool HasOutputGrip => false;
+        public override bool HasOutputGrip => true;
 
         public TimelineComponentAttributes(TimelineComponent gradient)
           : base(gradient)
@@ -74,33 +74,28 @@ namespace Plugin
                         palette = GH_Palette.Locked;
                     }
 
-                    if (Owner.Recording)
-                    {
-                        using (GraphicsPath path = GH_CapsuleRenderEngine.CreateRoundedRectangle(RecordingBounds, 4))
-                        {
-                            using (SolidBrush brush = new SolidBrush(Color.Red))
-                            {
-                                graphics.FillPath(brush, path);
-                            }
-                        }
-                    }
-
                     using (GH_Capsule capsule = GH_Capsule.CreateCapsule(Bounds, palette))
                     {
-                        capsule.SetJaggedEdges(false, true);
-                        capsule.AddInputGrip(InputGrip.Y);
+                        //capsule.SetJaggedEdges(true, true);
+                        //capsule.AddInputGrip(InputGrip.Y);
+                        capsule.AddOutputGrip(OutputGrip.Y);
 
                         graphics.SmoothingMode = SmoothingMode.HighQuality;
                         capsule.Render(graphics, Selected, Owner.Locked, false);
                     }
+
                     Rectangle rectangle = GH_Convert.ToRectangle(TimelineBounds);
                     //Owner.Gradient.Render_Background(graphics, (RectangleF)rectangle);
                     //Owner.Gradient.Render_Gradient(graphics, (RectangleF)rectangle);
+                    if (Owner.Recording)
+                    {
+                        graphics.FillRectangle(new SolidBrush(Color.FromArgb(200, 0, 0)), rectangle);
+                    }
                     Owner.Timeline.RenderCurrentTime(graphics, rectangle);
                     GH_GraphicsUtil.ShadowRectangle(graphics, rectangle);
                     graphics.DrawRectangle(Pens.Black, rectangle);
                     //Owner.Gradient.Render_Grips(graphics, (RectangleF)rectangle);
-                    GH_PaletteStyle impliedStyle = GH_CapsuleRenderEngine.GetImpliedStyle(palette, Selected, Owner.Locked, false);
+                    //GH_PaletteStyle impliedStyle = GH_CapsuleRenderEngine.GetImpliedStyle(palette, Selected, Owner.Locked, false);
                     //GH_ComponentAttributes.RenderComponentParameters(canvas, graphics, Owner, impliedStyle);
                     break;
             }
