@@ -44,8 +44,6 @@ namespace Plugin
 
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
-            Menu_AppendWireDisplay(menu);
-            Menu_AppendDisconnectWires(menu);
             Menu_AppendSeparator(menu);
 
             Menu_AppendItem(menu, Recording ? "Stop Recording" : "Record", (obj, arg) =>
