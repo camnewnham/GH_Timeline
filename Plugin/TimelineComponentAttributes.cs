@@ -3,8 +3,10 @@ using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace Plugin
@@ -28,7 +30,7 @@ namespace Plugin
 
         protected override void Layout()
         {
-            Bounds = new RectangleF(Pivot, Bounds.Size);
+            Bounds = (RectangleF)(GH_Convert.ToRectangle(new RectangleF(Pivot, Bounds.Size)));
 
             RectangleF timelineBounds = Bounds;
             timelineBounds.Inflate(-5f, -5f);
@@ -70,6 +72,11 @@ namespace Plugin
                         palette = GH_Palette.Locked;
                     }
 
+                    if (Owner.Recording)
+                    {
+                        palette = GH_Palette.Error; // Use red palette while recording
+                    }
+
                     using (GH_Capsule capsule = GH_Capsule.CreateCapsule(Bounds, palette))
                     {
                         capsule.AddOutputGrip(OutputGrip.Y);
@@ -79,16 +86,29 @@ namespace Plugin
 
                     Rectangle rectangle = GH_Convert.ToRectangle(ContentBounds);
 
-                    if (Owner.Recording)
-                    {
-                        graphics.FillRectangle(new SolidBrush(Color.FromArgb(200, 0, 0)), ContentBounds);
-                    }
-
                     RenderBackground(graphics);
                     GH_GraphicsUtil.ShadowRectangle(graphics, rectangle);
                     RenderCurrentTime(graphics);
+                    RenderSequences(graphics);
                     graphics.DrawRectangle(Pens.Black, rectangle);
                     break;
+            }
+        }
+
+        private void RenderSequences(Graphics graphics)
+        {
+            if (Owner.Keyframes.Count == 0)
+            {
+                return;
+            }
+
+            float spacing = ContentBounds.Height / (Owner.Keyframes.Count + 1);
+            float offset = spacing;
+
+            foreach (HashSet<TimelineComponent.Keyframe> timeline in Owner.Keyframes.OrderBy(x => x.Key).Select(x => x.Value))
+            {
+                RenderSequence(graphics, (int)(ContentBounds.Top + offset), timeline.OrderBy(x => x.Time));
+                offset += spacing;
             }
         }
 
@@ -106,7 +126,7 @@ namespace Plugin
             }
 
             // Draw Vertical line
-            using (Pen pen = new Pen(Color.FromArgb(GH_Canvas.ZoomFadeLow, Color.White), 2f))
+            using (Pen pen = new Pen(Color.FromArgb(GH_Canvas.ZoomFadeLow, Color.Black), 1f))
             {
                 GH_GraphicsUtil.ShadowVertical(graphics, CurrentTimeXPosition, ContentBounds.Bottom, ContentBounds.Top, 8f, true, 15);
                 GH_GraphicsUtil.ShadowVertical(graphics, CurrentTimeXPosition, ContentBounds.Bottom, ContentBounds.Top, 8f, false, 15);
@@ -184,23 +204,44 @@ namespace Plugin
             }
         }
 
-
-        public static void RenderGrip(Graphics graphics, float x, float y, float radius = 5, float stroke = 1)
+        private void RenderSequence(Graphics graphics, float yPos, IEnumerable<TimelineComponent.Keyframe> keyframes)
         {
+            if (GH_Canvas.ZoomFadeLow < 1)
+            {
+                return;
+            }
+
+
+            using (Pen pen = new Pen(Color.FromArgb(40 * (int)(GH_Canvas.ZoomFadeLow / 255f), Color.Black), 1f))
+            {
+                graphics.DrawLine(pen, ContentBounds.Left, yPos, ContentBounds.Right, yPos);
+            }
+            foreach (TimelineComponent.Keyframe keyframe in keyframes)
+            {
+                double xpos = Remap(keyframe.Time, 0, 1, ContentBounds.Left, ContentBounds.Right);
+                RenderGripDiamond(graphics, (float)xpos, yPos);
+            }
+        }
+
+        public static void RenderGripDiamond(Graphics graphics, float x, float y, float radius = 4)
+        {
+
             int alpha = GH_Canvas.ZoomFadeLow;
             if (alpha < 5)
             {
                 return;
             }
 
-            using (SolidBrush white = new SolidBrush(Color.FromArgb(alpha, Color.White)))
+            PointF[] polygon = new PointF[]
             {
-                using (SolidBrush black = new SolidBrush(Color.FromArgb(alpha, Color.Black)))
-                {
-                    graphics.FillEllipse(black, x - radius, y - radius, 2 * radius, 2 * radius);
-                    graphics.FillEllipse(white, x - radius + stroke, y - radius + stroke, 2 * (radius - stroke), 2 * (radius - stroke));
-                }
-            }
+                new PointF(x-radius/2,y),
+                new PointF(x, y+radius/2),
+                new PointF(x+radius/2,y),
+                new PointF(x,y-radius/2)
+            };
+
+            graphics.FillPolygon(Brushes.White, polygon);
+            graphics.DrawPolygon(Pens.Black, polygon);
         }
 
         #region Mouse
@@ -232,10 +273,7 @@ namespace Plugin
                     if (m_isDraggingSlider)
                     {
                         float pctChange = m_mouseDelta.X / ContentBounds.Width;
-                        Owner.SetSliderValue((decimal)((double)Owner.CurrentValue + pctChange));
-                        //ExpireLayout();
-                        //Instances.ActiveCanvas.Invalidate();
-                        Owner.ExpireSolution(true);
+                        Owner.OnTimelineHandleDragged((double)Owner.CurrentValue + pctChange);
                         return GH_ObjectResponse.Handled;
                     }
                     break;
