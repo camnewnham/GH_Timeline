@@ -3,7 +3,6 @@ using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
@@ -23,9 +22,25 @@ namespace Plugin
             Bounds = (RectangleF)new Rectangle(0, 0, 250, 64);
         }
 
+        /// <summary>
+        /// The area where progress text is drawn (i.e. 25.2%)
+        /// </summary>
         public RectangleF ProgressTextBounds { get; private set; }
+        /// <summary>
+        /// The main drawing area for the timeline
+        /// </summary>
         public RectangleF ContentBounds { get; private set; }
+        /// <summary>
+        /// <see cref="ContentBounds"/> but with additional padding
+        /// </summary>
+        public RectangleF ContentGraphicsBounds { get; private set; }
+        /// <summary>
+        /// The rectangle that represents the grab bar for the progress slider
+        /// </summary>
         public RectangleF ProgressGrabBarBounds { get; private set; }
+        /// <summary>
+        /// The X position in canvas space of the current time slider.
+        /// </summary>
         public float CurrentTimeXPosition { get; private set; }
 
         protected override void Layout()
@@ -33,7 +48,9 @@ namespace Plugin
             Bounds = (RectangleF)(GH_Convert.ToRectangle(new RectangleF(Pivot, Bounds.Size)));
 
             RectangleF timelineBounds = Bounds;
-            timelineBounds.Inflate(-5f, -5f);
+            timelineBounds.Inflate(-6f, -6f);
+            ContentGraphicsBounds = timelineBounds;
+            timelineBounds.Inflate(-6f, 0f);
             ContentBounds = timelineBounds;
 
             CurrentTimeXPosition = (float)Remap((double)Owner.CurrentValue, 0, 1, ContentBounds.X, ContentBounds.X + ContentBounds.Width);
@@ -84,7 +101,7 @@ namespace Plugin
                         capsule.Render(graphics, Selected, Owner.Locked, false);
                     }
 
-                    Rectangle rectangle = GH_Convert.ToRectangle(ContentBounds);
+                    Rectangle rectangle = GH_Convert.ToRectangle(ContentGraphicsBounds);
 
                     RenderBackground(graphics);
                     GH_GraphicsUtil.ShadowRectangle(graphics, rectangle);
@@ -97,17 +114,17 @@ namespace Plugin
 
         private void RenderSequences(Graphics graphics)
         {
-            if (Owner.Keyframes.Count == 0)
+            if (Owner.Sequences.Count == 0)
             {
                 return;
             }
 
-            float spacing = ContentBounds.Height / (Owner.Keyframes.Count + 1);
+            float spacing = ContentBounds.Height / (Owner.Sequences.Count + 1);
             float offset = spacing;
 
-            foreach (HashSet<TimelineComponent.Keyframe> timeline in Owner.Keyframes.OrderBy(x => x.Key).Select(x => x.Value))
+            foreach (TimelineComponent.Sequence sequence in Owner.Sequences.OrderBy(x => x.Key).Select(x => x.Value))
             {
-                RenderSequence(graphics, (int)(ContentBounds.Top + offset), timeline.OrderBy(x => x.Time));
+                RenderSequence(graphics, (int)(ContentBounds.Top + offset), sequence);
                 offset += spacing;
             }
         }
@@ -179,7 +196,7 @@ namespace Plugin
             const int segmentCount = 10;
             using (Pen pen = new Pen(Color.FromArgb(20 * (int)(GH_Canvas.ZoomFadeLow / 255f), Color.Black), 1f))
             {
-                for (int i = 1; i < segmentCount; i++)
+                for (int i = 0; i < segmentCount + 1; i++)
                 {
                     float x = (float)Remap(i, 0, segmentCount, ContentBounds.Left, ContentBounds.Right);
                     graphics.DrawLine(pen, x, ContentBounds.Bottom, x, ContentBounds.Top);
@@ -204,19 +221,18 @@ namespace Plugin
             }
         }
 
-        private void RenderSequence(Graphics graphics, float yPos, IEnumerable<TimelineComponent.Keyframe> keyframes)
+        private void RenderSequence(Graphics graphics, float yPos, TimelineComponent.Sequence sequence)
         {
             if (GH_Canvas.ZoomFadeLow < 1)
             {
                 return;
             }
 
-
             using (Pen pen = new Pen(Color.FromArgb(40 * (int)(GH_Canvas.ZoomFadeLow / 255f), Color.Black), 1f))
             {
-                graphics.DrawLine(pen, ContentBounds.Left, yPos, ContentBounds.Right, yPos);
+                graphics.DrawLine(pen, ContentGraphicsBounds.Left, yPos, ContentGraphicsBounds.Right, yPos);
             }
-            foreach (TimelineComponent.Keyframe keyframe in keyframes)
+            foreach (TimelineComponent.Keyframe keyframe in sequence.Keyframes)
             {
                 double xpos = Remap(keyframe.Time, 0, 1, ContentBounds.Left, ContentBounds.Right);
                 RenderGripDiamond(graphics, (float)xpos, yPos);
@@ -255,6 +271,11 @@ namespace Plugin
             return ProgressGrabBarBounds.Contains(m_mousePosition);
         }
 
+        public bool IsMouseOverTimelineBounds()
+        {
+            return ContentGraphicsBounds.Contains(m_mousePosition);
+        }
+
         public override GH_ObjectResponse RespondToMouseMove(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
             m_mouseDelta = new PointF(e.CanvasX - m_mousePosition.X, e.CanvasY - m_mousePosition.Y);
@@ -272,8 +293,11 @@ namespace Plugin
                 case MouseButtons.Left:
                     if (m_isDraggingSlider)
                     {
-                        float pctChange = m_mouseDelta.X / ContentBounds.Width;
-                        Owner.OnTimelineHandleDragged((double)Owner.CurrentValue + pctChange);
+                        if (m_mousePosition.X < ContentGraphicsBounds.Right && m_mousePosition.X > ContentGraphicsBounds.Left)
+                        {
+                            float pctChange = m_mouseDelta.X / ContentBounds.Width;
+                            Owner.OnTimelineHandleDragged((double)Owner.CurrentValue + pctChange);
+                        }
                         return GH_ObjectResponse.Handled;
                     }
                     break;
@@ -300,13 +324,31 @@ namespace Plugin
                     if (IsMouseOverSliderHandle())
                     {
                         m_isDraggingSlider = true;
-                        Grasshopper.Instances.ActiveCanvas.Invalidate();
+                        Instances.ActiveCanvas.Invalidate();
                         return GH_ObjectResponse.Capture;
                     }
                     break;
             }
 
             return base.RespondToMouseDown(sender, e);
+        }
+
+        public override GH_ObjectResponse RespondToMouseDoubleClick(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            switch (e.Button)
+            {
+                case MouseButtons.Left:
+                    if (IsMouseOverTimelineBounds())
+                    {
+                        Owner.Recording = !Owner.Recording;
+                        Instances.ActiveCanvas.Invalidate();
+                        return GH_ObjectResponse.Handled;
+                    }
+                    break;
+
+            }
+
+            return base.RespondToMouseDoubleClick(sender, e);
         }
         #endregion
     }
