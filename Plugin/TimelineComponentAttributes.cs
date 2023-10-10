@@ -114,15 +114,15 @@ namespace Plugin
 
         private void RenderSequences(Graphics graphics)
         {
-            if (Owner.Sequences.Count == 0)
+            if (Owner.Timeline.Sequences.Count == 0)
             {
                 return;
             }
 
-            float spacing = ContentBounds.Height / (Owner.Sequences.Count + 1);
+            float spacing = ContentBounds.Height / (Owner.Timeline.Sequences.Count + 1);
             float offset = spacing;
 
-            foreach (TimelineComponent.Sequence sequence in Owner.Sequences.OrderBy(x => x.Key).Select(x => x.Value))
+            foreach (Sequence sequence in Owner.Timeline.Sequences.OrderBy(x => x.Key).Select(x => x.Value))
             {
                 RenderSequence(graphics, (int)(ContentBounds.Top + offset), sequence);
                 offset += spacing;
@@ -221,7 +221,7 @@ namespace Plugin
             }
         }
 
-        private void RenderSequence(Graphics graphics, float yPos, TimelineComponent.Sequence sequence)
+        private void RenderSequence(Graphics graphics, float yPos, Sequence sequence)
         {
             if (GH_Canvas.ZoomFadeLow < 1)
             {
@@ -232,7 +232,7 @@ namespace Plugin
             {
                 graphics.DrawLine(pen, ContentGraphicsBounds.Left, yPos, ContentGraphicsBounds.Right, yPos);
             }
-            foreach (TimelineComponent.Keyframe keyframe in sequence.Keyframes)
+            foreach (Keyframe keyframe in sequence.Keyframes)
             {
                 double xpos = Remap(keyframe.Time, 0, 1, ContentBounds.Left, ContentBounds.Right);
                 RenderGripDiamond(graphics, (float)xpos, yPos);
