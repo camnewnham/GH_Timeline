@@ -8,6 +8,7 @@ namespace Plugin
 
     public class Sequence
     {
+        public int KeyframeCount => keyframes.Count;
         private readonly HashSet<Keyframe> keyframes = new HashSet<Keyframe>();
 
         private List<Keyframe> orderedKeyframes;

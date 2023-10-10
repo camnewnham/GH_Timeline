@@ -1,12 +1,16 @@
 ﻿using Grasshopper.Kernel;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Plugin
 {
     public class Timeline
     {
         public Dictionary<Guid, Sequence> Sequences { get; private set; } = new Dictionary<Guid, Sequence>();
+
+        public int SequenceCount => Sequences.Count;
+        public int KeyframeCount => Sequences.Values.Sum(x => x.KeyframeCount);
 
         public void SetTime(double time, GH_Document doc)
         {

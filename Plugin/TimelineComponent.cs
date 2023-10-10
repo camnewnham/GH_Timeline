@@ -14,6 +14,8 @@ namespace Plugin
         protected override System.Drawing.Bitmap Icon => null;
         public override GH_ParamKind Kind => GH_ParamKind.floating;
 
+        public override string InstanceDescription => $"Timeline\n{Timeline.SequenceCount} Sequences\n{Timeline.KeyframeCount} Keyframes";
+
         public Timeline Timeline;
         public TimelineComponent() : base()
         {
@@ -121,11 +123,6 @@ namespace Plugin
             foreach (IGH_DocumentObject docObj in m_expiredObjects)
             {
                 Timeline.TryAddKeyframe(docObj, (double)CurrentValue);
-
-                if (docObj is IGH_StateAwareObject stateAwareObj)
-                {
-                    Timeline.AddKeyframe(stateAwareObj, (double)CurrentValue);
-                }
             }
         }
 
