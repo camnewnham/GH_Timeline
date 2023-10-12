@@ -3,6 +3,8 @@ using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
+using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
@@ -12,7 +14,9 @@ namespace Plugin
 {
     public class TimelineComponentAttributes : GH_ResizableAttributes<TimelineComponent>
     {
-        protected override Size MinimumSize => new Size(100, 64);
+        private const int Pad = 6;
+        private const int SequenceHeight = 16;
+        protected override Size MinimumSize => new Size(192, 64);
         protected override Padding SizingBorders => new Padding(6);
         public override bool HasOutputGrip => true;
 
@@ -43,12 +47,24 @@ namespace Plugin
         /// </summary>
         public float CurrentTimeXPosition { get; private set; }
 
+        private List<SequenceLayout> sequenceLayouts = new List<SequenceLayout>();
+
         protected override void Layout()
         {
-            Bounds = (RectangleF)(GH_Convert.ToRectangle(new RectangleF(Pivot, Bounds.Size)));
+            GH_Document doc = Owner.OnPingDocument();
+            Bounds = (RectangleF)(GH_Convert.ToRectangle(new RectangleF(Pivot.X, Pivot.Y, Bounds.Width, Math.Max(MinimumSize.Height, 12 + Owner.Timeline.SequenceCount * SequenceHeight))));
 
-            RectangleF timelineBounds = Bounds;
-            timelineBounds.Inflate(-6f, -6f);
+            sequenceLayouts.Clear();
+            sequenceLayouts.AddRange(Owner.Timeline.Sequences.Values.Select(x => new SequenceLayout(x, x.GetDocumentObject(Owner.OnPingDocument()))));
+            sequenceLayouts.Sort((a, b) => a.Owner.GetDocumentObject(doc).Attributes.Pivot.Y.CompareTo(b.Owner.GetDocumentObject(doc).Attributes.Pivot.Y));
+
+            int nameAreaWidth = 0;
+            foreach (SequenceLayout sequence in sequenceLayouts)
+            {
+                nameAreaWidth = Math.Min(64, Math.Max(nameAreaWidth, sequence.NickNameWidth));
+            }
+
+            RectangleF timelineBounds = new RectangleF(Bounds.X + nameAreaWidth + Pad * 2, Bounds.Y + Pad, Bounds.Width - nameAreaWidth - Pad * 3, Bounds.Height - Pad * 2);
             ContentGraphicsBounds = timelineBounds;
             timelineBounds.Inflate(-6f, 0f);
             ContentBounds = timelineBounds;
@@ -57,6 +73,25 @@ namespace Plugin
             ProgressGrabBarBounds = new RectangleF(CurrentTimeXPosition - 2, ContentBounds.Y, 4, ContentBounds.Height);
 
             ProgressTextBounds = new RectangleF(CurrentTimeXPosition - 24 / 2f, ContentBounds.Top - 22f, 24, 12);
+
+            RectangleF nameRegion = new RectangleF(Bounds.X + Pad, Bounds.Y + Pad, nameAreaWidth, ContentBounds.Height);
+            LayoutSequences(nameRegion, ContentBounds);
+        }
+
+        private void LayoutSequences(RectangleF nameRegion, RectangleF contentRegion)
+        {
+            if (sequenceLayouts.Count == 0) return;
+
+            float spacing = ContentBounds.Height / (Owner.Timeline.Sequences.Count + 1);
+
+            float offset = spacing + contentRegion.Top;
+            foreach (SequenceLayout sequence in sequenceLayouts)
+            {
+                RectangleF sequenceBounds = new RectangleF(ContentBounds.X, offset - SequenceHeight / 2, ContentBounds.Width, SequenceHeight);
+                RectangleF nameBounds = new RectangleF(nameRegion.X, sequenceBounds.Y, nameRegion.Width, sequenceBounds.Height);
+                sequence.Layout(sequenceBounds, nameBounds);
+                offset += spacing;
+            }
         }
 
         protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
@@ -114,18 +149,15 @@ namespace Plugin
 
         private void RenderSequences(Graphics graphics)
         {
-            if (Owner.Timeline.Sequences.Count == 0)
+            foreach (SequenceLayout sq in this.sequenceLayouts)
             {
-                return;
-            }
+                float centerY = (sq.Bounds.Bottom + sq.Bounds.Top) / 2;
 
-            float spacing = ContentBounds.Height / (Owner.Timeline.Sequences.Count + 1);
-            float offset = spacing;
-
-            foreach (Sequence sequence in Owner.Timeline.Sequences.OrderBy(x => x.Key).Select(x => x.Value))
-            {
-                RenderSequence(graphics, (int)(ContentBounds.Top + offset), sequence);
-                offset += spacing;
+                using (Pen pen = new Pen(Color.FromArgb(40 * (int)(GH_Canvas.ZoomFadeLow / 255f), Color.Black), 1f))
+                {
+                    graphics.DrawLine(pen, ContentGraphicsBounds.Left, centerY, ContentGraphicsBounds.Right, centerY);
+                }
+                sq.Render(graphics);
             }
         }
 
@@ -214,45 +246,6 @@ namespace Plugin
                     graphics.DrawLine(pen, x, ContentBounds.Bottom, x, ContentBounds.Top);
                 }
             }
-        }
-
-        private void RenderSequence(Graphics graphics, float yPos, Sequence sequence)
-        {
-            if (GH_Canvas.ZoomFadeLow < 1)
-            {
-                return;
-            }
-
-            using (Pen pen = new Pen(Color.FromArgb(40 * (int)(GH_Canvas.ZoomFadeLow / 255f), Color.Black), 1f))
-            {
-                graphics.DrawLine(pen, ContentGraphicsBounds.Left, yPos, ContentGraphicsBounds.Right, yPos);
-            }
-            foreach (Keyframe keyframe in sequence.Keyframes)
-            {
-                double xpos = MathUtils.Remap(keyframe.Time, 0, 1, ContentBounds.Left, ContentBounds.Right);
-                RenderGripDiamond(graphics, (float)xpos, yPos);
-            }
-        }
-
-        public static void RenderGripDiamond(Graphics graphics, float x, float y, float radius = 4)
-        {
-
-            int alpha = GH_Canvas.ZoomFadeLow;
-            if (alpha < 5)
-            {
-                return;
-            }
-
-            PointF[] polygon = new PointF[]
-            {
-                new PointF(x-radius/2,y),
-                new PointF(x, y+radius/2),
-                new PointF(x+radius/2,y),
-                new PointF(x,y-radius/2)
-            };
-
-            graphics.FillPolygon(Brushes.White, polygon);
-            graphics.DrawPolygon(Pens.Black, polygon);
         }
 
         #region Mouse

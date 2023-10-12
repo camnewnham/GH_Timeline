@@ -78,7 +78,10 @@ namespace Plugin
         {
             foreach (IGH_DocumentObject obj in e.Objects)
             {
-                Timeline.RemoveSequence(obj.InstanceGuid);
+                if (Timeline.RemoveSequence(obj.InstanceGuid))
+                {
+                    Attributes.ExpireLayout();
+                }
             }
         }
 
@@ -122,7 +125,10 @@ namespace Plugin
 
             foreach (IGH_DocumentObject docObj in m_expiredObjects)
             {
-                Timeline.TryAddKeyframe(docObj, (double)CurrentValue);
+                if (Timeline.TryAddKeyframe(docObj, (double)CurrentValue))
+                {
+                    Attributes.ExpireLayout();
+                }
             }
         }
 
