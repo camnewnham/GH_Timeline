@@ -1,4 +1,5 @@
 ﻿using Grasshopper.Kernel;
+using Grasshopper.Kernel.Special;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -49,12 +50,17 @@ namespace Plugin
 
         public bool TryAddKeyframe(IGH_DocumentObject obj, double time)
         {
-            if (obj is IGH_StateAwareObject stateAwareObj)
+            switch (obj)
             {
-                AddKeyframe(stateAwareObj, time);
-                return true;
+                case GH_NumberSlider slider:
+                    AddKeyframe(slider, time);
+                    return true;
+                case IGH_StateAwareObject stateAwareObject:
+                    AddKeyframe(stateAwareObject, time);
+                    return true;
+                default:
+                    return false;
             }
-            return false;
         }
 
         public void AddKeyframe(IGH_StateAwareObject stateAwareObj, double time)
@@ -62,8 +68,15 @@ namespace Plugin
             IGH_DocumentObject docObj = stateAwareObj as IGH_DocumentObject;
             StateAwareKeyframe keyframe = new StateAwareKeyframe(time);
             keyframe.SaveState(docObj);
-            Guid id = docObj.InstanceGuid;
-            EnsureSequence(id).AddKeyframe(keyframe);
+            EnsureSequence(docObj.InstanceGuid).AddKeyframe(keyframe);
+        }
+
+        public void AddKeyframe(GH_NumberSlider numberSlider, double time)
+        {
+            NumberSliderKeyframe keyframe = new NumberSliderKeyframe(time);
+            keyframe.SaveState(numberSlider);
+            EnsureSequence(numberSlider.InstanceGuid).AddKeyframe(keyframe);
+
         }
     }
 }

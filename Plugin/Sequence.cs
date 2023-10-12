@@ -109,8 +109,15 @@ namespace Plugin
                 }
                 else if (time >= current.Time && time < next.Time) // Between this frame and next 
                 {
-                    // TODO interpolate state here.
-                    LastStateHashCode = current.LoadState(GetDocumentObject(doc));
+                    if (current is InterpolatableKeyframe interpolatable && next is InterpolatableKeyframe interpolatableNext)
+                    {
+                        double fraction = MathUtils.Remap(time, current.Time, next.Time, 0, 1);
+                        interpolatable.InterpolateState(GetDocumentObject(doc), interpolatableNext, fraction);
+                    }
+                    else
+                    {
+                        LastStateHashCode = current.LoadState(GetDocumentObject(doc));
+                    }
                     break;
                 }
             }

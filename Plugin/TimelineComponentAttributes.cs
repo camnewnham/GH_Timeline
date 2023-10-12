@@ -53,7 +53,7 @@ namespace Plugin
             timelineBounds.Inflate(-6f, 0f);
             ContentBounds = timelineBounds;
 
-            CurrentTimeXPosition = (float)Remap((double)Owner.CurrentValue, 0, 1, ContentBounds.X, ContentBounds.X + ContentBounds.Width);
+            CurrentTimeXPosition = (float)MathUtils.Remap((double)Owner.CurrentValue, 0, 1, ContentBounds.X, ContentBounds.X + ContentBounds.Width);
             ProgressGrabBarBounds = new RectangleF(CurrentTimeXPosition - 2, ContentBounds.Y, 4, ContentBounds.Height);
 
             ProgressTextBounds = new RectangleF(CurrentTimeXPosition - 24 / 2f, ContentBounds.Top - 22f, 24, 12);
@@ -129,11 +129,6 @@ namespace Plugin
             }
         }
 
-        private static double Remap(double value, double low1, double high1, double low2, double high2)
-        {
-            return low2 + (value - low1) * (high2 - low2) / (high1 - low1);
-        }
-
         public void RenderCurrentTime(Graphics graphics)
         {
             int lineAlpha = GH_Canvas.ZoomFadeLow;
@@ -198,7 +193,7 @@ namespace Plugin
             {
                 for (int i = 0; i < segmentCount + 1; i++)
                 {
-                    float x = (float)Remap(i, 0, segmentCount, ContentBounds.Left, ContentBounds.Right);
+                    float x = (float)MathUtils.Remap(i, 0, segmentCount, ContentBounds.Left, ContentBounds.Right);
                     graphics.DrawLine(pen, x, ContentBounds.Bottom, x, ContentBounds.Top);
                 }
             }
@@ -215,7 +210,7 @@ namespace Plugin
                         continue;
                     }
 
-                    float x = (float)Remap(i, 0, segmentCount * 5, ContentBounds.Left, ContentBounds.Right);
+                    float x = (float)MathUtils.Remap(i, 0, segmentCount * 5, ContentBounds.Left, ContentBounds.Right);
                     graphics.DrawLine(pen, x, ContentBounds.Bottom, x, ContentBounds.Top);
                 }
             }
@@ -234,7 +229,7 @@ namespace Plugin
             }
             foreach (Keyframe keyframe in sequence.Keyframes)
             {
-                double xpos = Remap(keyframe.Time, 0, 1, ContentBounds.Left, ContentBounds.Right);
+                double xpos = MathUtils.Remap(keyframe.Time, 0, 1, ContentBounds.Left, ContentBounds.Right);
                 RenderGripDiamond(graphics, (float)xpos, yPos);
             }
         }
@@ -293,11 +288,15 @@ namespace Plugin
                 case MouseButtons.Left:
                     if (m_isDraggingSlider)
                     {
-                        if (m_mousePosition.X < ContentGraphicsBounds.Right && m_mousePosition.X > ContentGraphicsBounds.Left)
+                        if ((m_mousePosition.X < ContentGraphicsBounds.Left && Owner.CurrentValue <= 0) ||
+                            (m_mousePosition.X > ContentGraphicsBounds.Right && Owner.CurrentValue >= 1))
                         {
-                            float pctChange = m_mouseDelta.X / ContentBounds.Width;
-                            Owner.OnTimelineHandleDragged((double)Owner.CurrentValue + pctChange);
+                            return GH_ObjectResponse.Handled;
                         }
+
+                        float pctChange = m_mouseDelta.X / ContentBounds.Width;
+                        Owner.OnTimelineHandleDragged((double)Owner.CurrentValue + pctChange);
+
                         return GH_ObjectResponse.Handled;
                     }
                     break;
