@@ -31,11 +31,11 @@ namespace Plugin
             return Sequences.TryGetValue(instanceGuid, out sequence);
         }
 
-        public Sequence EnsureSequence(Guid instanceGuid, string name)
+        public Sequence EnsureSequence(Guid instanceGuid)
         {
             if (!TryGetSequence(instanceGuid, out Sequence sequence))
             {
-                Sequences[instanceGuid] = sequence = new ComponentSequence(instanceGuid, name);
+                Sequences[instanceGuid] = sequence = new ComponentSequence(instanceGuid);
             }
             return sequence;
         }
@@ -68,14 +68,14 @@ namespace Plugin
             IGH_DocumentObject docObj = stateAwareObj as IGH_DocumentObject;
             StateAwareKeyframe keyframe = new StateAwareKeyframe(time);
             keyframe.SaveState(docObj);
-            EnsureSequence(docObj.InstanceGuid, docObj.GetName()).AddKeyframe(keyframe);
+            EnsureSequence(docObj.InstanceGuid).AddKeyframe(keyframe);
         }
 
         public void AddKeyframe(GH_NumberSlider numberSlider, double time)
         {
             NumberSliderKeyframe keyframe = new NumberSliderKeyframe(time);
             keyframe.SaveState(numberSlider);
-            EnsureSequence(numberSlider.InstanceGuid, numberSlider.GetName()).AddKeyframe(keyframe);
+            EnsureSequence(numberSlider.InstanceGuid).AddKeyframe(keyframe);
 
         }
     }
