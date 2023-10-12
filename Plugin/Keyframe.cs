@@ -13,14 +13,26 @@ namespace Plugin
         {
             Time = time;
         }
+    }
 
+    public abstract class ComponentKeyframe : Keyframe
+    {
+        protected ComponentKeyframe(double time) : base(time) { }
         public abstract int LoadState(IGH_DocumentObject obj);
+        public virtual int InterpolateState(IGH_DocumentObject obj, ComponentKeyframe other, double amount)
+        {
+            return LoadState(obj);
+        }
         public abstract int SaveState(IGH_DocumentObject obj);
+    }
 
+    public class CameraKeyframe : Keyframe
+    {
+        public CameraKeyframe(double time) : base(time) { }
     }
 
     [Serializable]
-    public class StateAwareKeyframe : Keyframe
+    public class StateAwareKeyframe : ComponentKeyframe
     {
         private string m_state;
 
@@ -42,22 +54,14 @@ namespace Plugin
     }
 
     [Serializable]
-    public abstract class InterpolatableKeyframe : Keyframe
-    {
-        protected InterpolatableKeyframe(double time) : base(time) { }
-
-        public abstract int InterpolateState(IGH_DocumentObject obj, InterpolatableKeyframe other, double amount);
-    }
-
-    [Serializable]
-    public class NumberSliderKeyframe : InterpolatableKeyframe
+    public class NumberSliderKeyframe : ComponentKeyframe
     {
         private double m_state;
 
         public NumberSliderKeyframe(double time) : base(time) { }
 
 
-        public override int InterpolateState(IGH_DocumentObject obj, InterpolatableKeyframe other, double interpolation)
+        public override int InterpolateState(IGH_DocumentObject obj, ComponentKeyframe other, double interpolation)
         {
             double value = m_state * (1 - interpolation) + ((NumberSliderKeyframe)other).m_state * interpolation;
             (obj as GH_NumberSlider).SetSliderValue((decimal)value);

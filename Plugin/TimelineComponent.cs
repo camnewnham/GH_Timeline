@@ -94,9 +94,9 @@ namespace Plugin
         {
             foreach (KeyValuePair<Guid, Guid> kvp in map)
             {
-                if (Timeline.TryGetSequence(kvp.Key, out Sequence found))
+                if (Timeline.TryGetSequence(kvp.Key, out Sequence found) && found is ComponentSequence cseq)
                 {
-                    found.InstanceGuid = kvp.Value;
+                    cseq.InstanceGuid = kvp.Value;
                 }
             }
         }

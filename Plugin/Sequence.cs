@@ -6,12 +6,52 @@ using System.Linq;
 namespace Plugin
 {
 
-    public class Sequence
+    public abstract class Sequence
     {
+        public abstract string Name { get; }
         public int KeyframeCount => keyframes.Count;
         private readonly HashSet<Keyframe> keyframes = new HashSet<Keyframe>();
 
         private List<Keyframe> orderedKeyframes;
+
+
+        public IEnumerable<Keyframe> Keyframes => keyframes;
+
+        public List<Keyframe> OrderedKeyframes
+        {
+            get
+            {
+                if (orderedKeyframes == null)
+                {
+                    orderedKeyframes = keyframes.OrderBy(x => x.Time).ToList();
+                }
+                return orderedKeyframes;
+            }
+        }
+
+
+        public bool IsEmpty => keyframes.Count == 0;
+
+
+        public void AddKeyframe(Keyframe keyframe)
+        {
+            orderedKeyframes = null;
+            keyframes.RemoveWhere(x => x.Time == keyframe.Time);
+            keyframes.Add(keyframe);
+        }
+
+        public abstract bool SetTime(double time, GH_Document doc);
+    }
+
+    public class ComponentSequence : Sequence
+    {
+        private string m_name;
+        public override string Name => m_ghObject?.Name ?? m_name;
+        /// <summary>
+        /// Hashset of the last state. The component corresponding to this sequence will
+        /// only be expired if the hashcode changes.
+        /// </summary>
+        private int LastStateHashCode = -1;
 
         private IGH_DocumentObject m_ghObject;
 
@@ -29,20 +69,6 @@ namespace Plugin
             }
         }
 
-        public IEnumerable<Keyframe> Keyframes => keyframes;
-
-        public List<Keyframe> OrderedKeyframes
-        {
-            get
-            {
-                if (orderedKeyframes == null)
-                {
-                    orderedKeyframes = keyframes.OrderBy(x => x.Time).ToList();
-                }
-                return orderedKeyframes;
-            }
-        }
-
         public IGH_DocumentObject GetDocumentObject(GH_Document doc)
         {
             if (m_ghObject == null)
@@ -57,24 +83,10 @@ namespace Plugin
             return m_ghObject;
         }
 
-        public Sequence(Guid instanceGuid)
+        public ComponentSequence(Guid instanceGuid, string name)
         {
             InstanceGuid = instanceGuid;
-        }
-
-        public bool IsEmpty => keyframes.Count == 0;
-
-        /// <summary>
-        /// Hashset of the last state. The component corresponding to this sequence will
-        /// only be expired if the hashcode changes.
-        /// </summary>
-        private int LastStateHashCode = -1;
-
-        public void AddKeyframe(Keyframe keyframe)
-        {
-            orderedKeyframes = null;
-            keyframes.RemoveWhere(x => x.Time == keyframe.Time);
-            keyframes.Add(keyframe);
+            m_name = name;
         }
 
         /// <summary>
@@ -83,42 +95,23 @@ namespace Plugin
         /// <param name="time">The time to set</param>
         /// <param name="doc">The document to apply the time change to</param>
         /// <returns>True if setting the time resulted in a change and expired the component (that should prompt component and document expiry)</returns>
-        public bool SetTime(double time, GH_Document doc)
+        public override bool SetTime(double time, GH_Document doc)
         {
             int oldHash = LastStateHashCode;
             for (int i = 0; i < OrderedKeyframes.Count; i++)
             {
-                Keyframe previous = i > 0 ? OrderedKeyframes[i - 1] : null;
-                Keyframe current = OrderedKeyframes[i];
-                Keyframe next = i < OrderedKeyframes.Count - 1 ? OrderedKeyframes[i + 1] : null;
+                ComponentKeyframe current = OrderedKeyframes[i] as ComponentKeyframe;
+                ComponentKeyframe next = i < OrderedKeyframes.Count - 1 ? OrderedKeyframes[i + 1] as ComponentKeyframe : null;
 
-                if (next == null)  // Past last frame
+                if (next == null // Past last frame or only one keyframe
+                    || (i == 0 && current.Time >= time))   // On or before first frame
                 {
                     LastStateHashCode = current.LoadState(GetDocumentObject(doc));
-                    break;
-                }
-                else if (previous == null && next == null) // Only one keyframe
-                {
-                    LastStateHashCode = current.LoadState(GetDocumentObject(doc));
-                    break;
-                }
-                else if (previous == null && current.Time >= time)  // On or before first frame
-                {
-                    LastStateHashCode = current.LoadState(GetDocumentObject(doc));
-                    break;
                 }
                 else if (time >= current.Time && time < next.Time) // Between this frame and next 
                 {
-                    if (current is InterpolatableKeyframe interpolatable && next is InterpolatableKeyframe interpolatableNext)
-                    {
-                        double fraction = MathUtils.Remap(time, current.Time, next.Time, 0, 1);
-                        interpolatable.InterpolateState(GetDocumentObject(doc), interpolatableNext, fraction);
-                    }
-                    else
-                    {
-                        LastStateHashCode = current.LoadState(GetDocumentObject(doc));
-                    }
-                    break;
+                    double fraction = MathUtils.Remap(time, current.Time, next.Time, 0, 1);
+                    current.InterpolateState(GetDocumentObject(doc), next, fraction);
                 }
             }
 

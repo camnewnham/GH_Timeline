@@ -10,18 +10,16 @@ namespace Plugin
     internal class SequenceLayout
     {
         public Sequence Owner;
-        public IGH_DocumentObject Component;
         public RectangleF Bounds;
         public RectangleF NameBounds;
 
         public List<KeyframeLayout> KeyframeLayouts = new List<KeyframeLayout>();
 
-        public int NickNameWidth => GH_FontServer.StringWidth(Component.NickName, GH_FontServer.Small);
+        public int NickNameWidth => GH_FontServer.StringWidth(Owner.Name, GH_FontServer.Small);
 
-        public SequenceLayout(Sequence owner, IGH_DocumentObject referenceObject)
+        public SequenceLayout(Sequence owner)
         {
             Owner = owner;
-            Component = referenceObject;
         }
 
         public void Layout(RectangleF bounds, RectangleF nameBounds)
@@ -54,7 +52,7 @@ namespace Plugin
             }
 
             graphics.TextRenderingHint = GH_TextRenderingConstants.GH_SmoothText;
-            graphics.DrawString(Component.NickName, GH_FontServer.Small, Brushes.Black, NameBounds, GH_TextRenderingConstants.FarCenter);
+            graphics.DrawString(Owner.Name, GH_FontServer.Small, Brushes.Black, NameBounds, GH_TextRenderingConstants.FarCenter);
 
             foreach (KeyframeLayout keyframe in KeyframeLayouts)
             {

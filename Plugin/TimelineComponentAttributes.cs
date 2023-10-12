@@ -55,8 +55,16 @@ namespace Plugin
             Bounds = (RectangleF)(GH_Convert.ToRectangle(new RectangleF(Pivot.X, Pivot.Y, Bounds.Width, Math.Max(MinimumSize.Height, 12 + Owner.Timeline.SequenceCount * SequenceHeight))));
 
             sequenceLayouts.Clear();
-            sequenceLayouts.AddRange(Owner.Timeline.Sequences.Values.Select(x => new SequenceLayout(x, x.GetDocumentObject(Owner.OnPingDocument()))));
-            sequenceLayouts.Sort((a, b) => a.Owner.GetDocumentObject(doc).Attributes.Pivot.Y.CompareTo(b.Owner.GetDocumentObject(doc).Attributes.Pivot.Y));
+            sequenceLayouts.AddRange(Owner.Timeline.Sequences.Values.Select(x => new SequenceLayout(x)));
+            sequenceLayouts.Sort((a, b) =>
+            {
+                // Sort by position in GH document
+                if (a.Owner is ComponentSequence csa && b.Owner is ComponentSequence csb)
+                {
+                    return csa.GetDocumentObject(doc).Attributes.Pivot.Y.CompareTo(csb.GetDocumentObject(doc).Attributes.Pivot.Y);
+                }
+                return a.Owner.Name.CompareTo(b.Owner.Name);
+            });
 
             int nameAreaWidth = 0;
             foreach (SequenceLayout sequence in sequenceLayouts)
