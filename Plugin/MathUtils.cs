@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Grasshopper.Kernel;
+using Grasshopper.Kernel.Special;
+using System;
 
 namespace Plugin
 {
@@ -34,6 +36,19 @@ namespace Plugin
         public static double Lerp(double a, double b, double t)
         {
             return (a + (b - a) * t);
+        }
+
+        public static string GetName(this IGH_DocumentObject docObj)
+        {
+            if (docObj is GH_NumberSlider slider)
+            {
+                return slider.ImpliedNickName;
+            }
+            if (!string.IsNullOrEmpty(docObj.NickName))
+            {
+                return docObj.NickName;
+            }
+            return docObj.Name;
         }
     }
 }

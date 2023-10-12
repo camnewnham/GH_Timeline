@@ -46,7 +46,7 @@ namespace Plugin
     public class ComponentSequence : Sequence
     {
         private string m_name;
-        public override string Name => m_ghObject?.Name ?? m_name;
+        public override string Name => m_ghObject?.GetName() ?? m_name;
         /// <summary>
         /// Hashset of the last state. The component corresponding to this sequence will
         /// only be expired if the hashcode changes.
