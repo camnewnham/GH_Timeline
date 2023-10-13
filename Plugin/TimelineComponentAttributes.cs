@@ -66,9 +66,8 @@ namespace Plugin
             sequenceLayouts.Sort((a, b) =>
             {
                 // Sort by position in GH document
-                return a.Owner is ComponentSequence csa && b.Owner is ComponentSequence csb
-                    ? csa.DocumentObject.Attributes.Pivot.Y.CompareTo(csb.DocumentObject.Attributes.Pivot.Y)
-                    : a.Owner.Name.CompareTo(b.Owner.Name);
+                return a.Owner is ComponentSequence csa && b.Owner is ComponentSequence csb ? csa.DocumentObject.Attributes.Pivot.Y.CompareTo(csb.DocumentObject.Attributes.Pivot.Y) :
+                    a.Owner is CameraSequence ? -1 : a.Owner.Name.CompareTo(b.Owner.Name);
             });
 
             int nameAreaWidth = 0;

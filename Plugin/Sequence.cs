@@ -1,4 +1,5 @@
 ﻿using Grasshopper.Kernel;
+using Rhino.Display;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -39,16 +40,31 @@ namespace Plugin
             _ = keyframes.Add(keyframe);
         }
 
-        public abstract bool SetTime(double time, GH_Document doc);
+        public abstract bool SetTime(double time, GH_Document doc, RhinoViewport viewport);
     }
 
     public class CameraSequence : Sequence
     {
         public override string Name => "Camera";
 
-        public override bool SetTime(double time, GH_Document doc)
+        public override bool SetTime(double time, GH_Document doc, RhinoViewport viewport)
         {
-            // tODO
+            for (int i = 0; i < OrderedKeyframes.Count; i++)
+            {
+                CameraKeyframe current = OrderedKeyframes[i] as CameraKeyframe;
+                CameraKeyframe next = i < OrderedKeyframes.Count - 1 ? OrderedKeyframes[i + 1] as CameraKeyframe : null;
+
+                if (next == null // Past last frame or only one keyframe
+                    || (i == 0 && current.Time >= time))   // On or before first frame
+                {
+                    return current.LoadState(viewport);
+                }
+                else if (time >= current.Time && time < next.Time) // Between this frame and next 
+                {
+                    double fraction = MathUtils.Remap(time, current.Time, next.Time, 0, 1);
+                    return current.InterpolateState(viewport, next, fraction);
+                }
+            }
             return false;
         }
     }
@@ -120,7 +136,7 @@ namespace Plugin
         /// <param name="time">The time to set</param>
         /// <param name="doc">The document to apply the time change to</param>
         /// <returns>True if setting the time resulted in a change and expired the component (that should prompt component and document expiry)</returns>
-        public override bool SetTime(double time, GH_Document doc)
+        public override bool SetTime(double time, GH_Document doc, RhinoViewport viewport)
         {
             Document = doc;
             int oldHash = LastStateHashCode;

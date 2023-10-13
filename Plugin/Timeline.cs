@@ -1,5 +1,6 @@
 ﻿using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
+using Rhino.Display;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,11 +16,11 @@ namespace Plugin
         public int SequenceCount => Sequences.Count;
         public int KeyframeCount => Sequences.Values.Sum(x => x.KeyframeCount);
 
-        public void SetTime(double time, GH_Document doc)
+        public void SetTime(double time, GH_Document doc, RhinoViewport viewport)
         {
             foreach (Sequence sq in Sequences.Values)
             {
-                _ = sq.SetTime(time, doc);
+                _ = sq.SetTime(time, doc, viewport);
             }
         }
 
@@ -28,25 +29,31 @@ namespace Plugin
             return Sequences.Remove(guid);
         }
 
-        public bool TryGetSequence(Guid guid, out Sequence sequence)
+        public bool TryGetSequence<T>(Guid guid, out T sequence) where T : Sequence
         {
-            return Sequences.TryGetValue(guid, out sequence);
+            if (Sequences.TryGetValue(guid, out Sequence rawSeq) && rawSeq is T typedSeq)
+            {
+                sequence = typedSeq;
+                return true;
+            };
+            sequence = null;
+            return false;
         }
 
-        public Sequence EnsureSequence(Guid guid, Func<Sequence> instantiator)
+        public T EnsureSequence<T>(Guid guid, Func<T> instantiator) where T : Sequence
         {
-            if (!TryGetSequence(guid, out Sequence sequence))
+            if (!TryGetSequence(guid, out T sequence))
             {
                 Sequences[guid] = sequence = instantiator();
             }
             return sequence;
         }
 
-        public void OnTimeChanged(double time, GH_Document doc)
+        public void OnTimeChanged(double time, GH_Document doc, RhinoViewport viewport)
         {
             foreach (Sequence seq in Sequences.Values)
             {
-                _ = seq.SetTime(time, doc);
+                _ = seq.SetTime(time, doc, viewport);
             }
         }
 
@@ -78,7 +85,13 @@ namespace Plugin
             NumberSliderKeyframe keyframe = new NumberSliderKeyframe(time);
             _ = keyframe.SaveState(numberSlider);
             EnsureSequence(numberSlider.InstanceGuid, () => new ComponentSequence(numberSlider.InstanceGuid, numberSlider.OnPingDocument())).AddKeyframe(keyframe);
+        }
 
+        public void AddKeyframe(CameraState cameraState, double time)
+        {
+            CameraKeyframe kf = new CameraKeyframe(time);
+            kf.SaveState(cameraState);
+            EnsureSequence(Timeline.MainCameraSequenceId, () => new CameraSequence()).AddKeyframe(kf);
         }
     }
 }

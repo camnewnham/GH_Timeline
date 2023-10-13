@@ -19,13 +19,16 @@ namespace Plugin
             Enabled = false;
         }
 
-        protected override void DrawOverlay(DrawEventArgs e)
+        protected override void PostDrawObjects(DrawEventArgs e)
         {
-            CameraState newState = CameraState.CreateFromViewport(e.Viewport);
-            if (!newState.Equals(m_state))
+            if (e.Viewport.Id == e.RhinoDoc.Views.ActiveView.ActiveViewportID)
             {
-                m_state = newState;
-                OnCameraStateChanged?.Invoke(m_state);
+                CameraState newState = new CameraState(e.Viewport);
+                if (!newState.Equals(m_state))
+                {
+                    m_state = newState;
+                    OnCameraStateChanged?.Invoke(m_state);
+                }
             }
         }
     }

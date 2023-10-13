@@ -1,4 +1,5 @@
 using GH_IO.Serialization;
+using Grasshopper;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
 using System;
@@ -33,6 +34,11 @@ namespace Plugin
         public override string Category => "Display";
         public override string SubCategory => "Timeline";
 
+        /// <summary>
+        /// During recording to disk, this stores the viewport that is being recorded.
+        /// </summary>
+        private Rhino.Display.RhinoViewport m_recordAnimationViewport;
+
         public override void CreateAttributes()
         {
             Attributes = new TimelineComponentAttributes(this);
@@ -45,26 +51,30 @@ namespace Plugin
             _ = Menu_AppendItem(menu, Recording ? "Recording..." : "Record", (obj, arg) =>
             {
                 Recording = !Recording;
-                Grasshopper.Instances.ActiveCanvas.Invalidate();
+                Instances.ActiveCanvas.Invalidate();
             }, true, Recording);
 
 
             _ = Menu_AppendItem(menu, "Animate Camera", (obj, arg) =>
             {
                 AnimateCamera = !AnimateCamera;
-                Grasshopper.Instances.ActiveCanvas.Invalidate();
+                Instances.ActiveCanvas.Invalidate();
             }, true, AnimateCamera);
 
-            _ = Menu_AppendItem(menu, "Animate...", (obj, arg) =>
+            _ = Menu_AppendItem(menu, "Export Animation...", (obj, arg) =>
             {
                 GH_SliderAnimator gH_SliderAnimator = new GH_SliderAnimator(this);
                 if (gH_SliderAnimator.SetupAnimationProperties())
                 {
                     Recording = false;
+                    m_recordAnimationViewport = gH_SliderAnimator.Viewport;
                     _ = gH_SliderAnimator.StartAnimation();
+                    m_recordAnimationViewport = null;
                 }
             });
         }
+
+        private CameraTracker m_cameraTracker;
 
         public override void AddedToDocument(GH_Document document)
         {
@@ -77,6 +87,29 @@ namespace Plugin
             {
                 OnFirstAddToDocument();
             }
+
+            m_cameraTracker = new CameraTracker();
+            m_cameraTracker.OnCameraStateChanged += OnCameraStateChange;
+        }
+
+        private void OnCameraStateChange(CameraState obj)
+        {
+            _ = OnPingDocument();
+
+            if (!Recording || !AnimateCamera)
+            {
+                return;
+            }
+
+            if (m_cameraSliderValueChanged)
+            {
+                m_cameraSliderValueChanged = false;
+                return;
+            }
+
+            Timeline.AddKeyframe(obj, (double)CurrentValue);
+            Attributes.ExpireLayout();
+            Instances.ActiveCanvas.Invalidate();
         }
 
         public void OnFirstAddToDocument()
@@ -87,6 +120,7 @@ namespace Plugin
 
         public override void RemovedFromDocument(GH_Document document)
         {
+            m_cameraTracker?.Dispose();
             Recording = false;
             document.SolutionEnd -= OnSolutionEndRecordState;
             document.SolutionStart -= OnSolutionStartRecordState;
@@ -122,8 +156,6 @@ namespace Plugin
             }
         }
 
-        #region Camera
-
         private bool m_animateCamera = false;
         public bool AnimateCamera
         {
@@ -147,7 +179,6 @@ namespace Plugin
             }
         }
 
-        #endregion
 
         #region Recording
         /// <summary>
@@ -156,13 +187,15 @@ namespace Plugin
         private readonly HashSet<IGH_DocumentObject> m_expiredObjects = new HashSet<IGH_DocumentObject>();
         public bool Recording { get; set; }
 
-        private bool m_wasExpirationInitiatedBySliderValue = false;
+        private bool m_wasSliderValueChanged = false;
+        private bool m_cameraSliderValueChanged = false;
 
         private void OnSolutionEndRecordState(object sender, GH_SolutionEventArgs e)
         {
-            if (m_wasExpirationInitiatedBySliderValue)
+            if (m_wasSliderValueChanged)
             {
-                m_wasExpirationInitiatedBySliderValue = false;
+                m_wasSliderValueChanged = false;
+                m_cameraSliderValueChanged = true;
                 return;
             }
 
@@ -182,7 +215,7 @@ namespace Plugin
 
         private void OnSolutionStartRecordState(object sender, GH_SolutionEventArgs e)
         {
-            if (!Recording || m_wasExpirationInitiatedBySliderValue)
+            if (!Recording || m_wasSliderValueChanged)
             {
                 return;
             }
@@ -206,12 +239,12 @@ namespace Plugin
                 return;
             }
 
-            m_wasExpirationInitiatedBySliderValue = true;
+            m_wasSliderValueChanged = true;
             if (Phase == GH_SolutionPhase.Blank)
             {
                 CollectData();
                 _ = VolatileData.AllData(true).FirstOrDefault().CastTo(out double time);
-                Timeline.OnTimeChanged(time, OnPingDocument());
+                Timeline.OnTimeChanged(time, OnPingDocument(), m_recordAnimationViewport ?? Rhino.RhinoDoc.ActiveDoc.Views.ActiveView.ActiveViewport);
             }
         }
 

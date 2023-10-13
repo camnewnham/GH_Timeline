@@ -1,5 +1,6 @@
 ﻿using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
+using Rhino.Display;
 using System;
 
 namespace Plugin
@@ -28,7 +29,35 @@ namespace Plugin
 
     public class CameraKeyframe : Keyframe
     {
+        private CameraState m_state;
         public CameraKeyframe(double time) : base(time) { }
+
+        public void SaveState(CameraState state)
+        {
+            m_state = state;
+        }
+
+        public bool LoadState(RhinoViewport viewport)
+        {
+            if (!m_state.Equals(new CameraState(viewport)))
+            {
+                m_state.ApplyToViewport(viewport);
+                return true;
+            }
+            return false;
+        }
+
+        public bool InterpolateState(RhinoViewport viewport, CameraKeyframe other, double t)
+        {
+            CameraState tween = MathUtils.EaseInOut(t, m_state, other.m_state, Easing.Linear, Easing.Linear);
+
+            if (!tween.Equals(new CameraState(viewport)))
+            {
+                tween.ApplyToViewport(viewport);
+                return true;
+            }
+            return false;
+        }
     }
 
     [Serializable]
@@ -64,7 +93,7 @@ namespace Plugin
         public override int InterpolateState(IGH_DocumentObject obj, ComponentKeyframe other, double interpolation)
         {
             NumberSliderKeyframe otherNs = other as NumberSliderKeyframe;
-            double value = MathUtils.Remap(MathUtils.EaseInOut(interpolation, Easing.Linear, Easing.Linear), 0, 1, m_state, otherNs.m_state);
+            double value = MathUtils.EaseInOut(interpolation, m_state, otherNs.m_state, Easing.Linear, Easing.Linear);
             (obj as GH_NumberSlider).SetSliderValue((decimal)value);
             return value.GetHashCode();
 
