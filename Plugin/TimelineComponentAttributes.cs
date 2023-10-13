@@ -47,23 +47,28 @@ namespace Plugin
         /// </summary>
         public float CurrentTimeXPosition { get; private set; }
 
-        private List<SequenceLayout> sequenceLayouts = new List<SequenceLayout>();
+        private readonly List<SequenceLayout> sequenceLayouts = new List<SequenceLayout>();
 
         protected override void Layout()
         {
             GH_Document doc = Owner.OnPingDocument();
-            Bounds = (RectangleF)(GH_Convert.ToRectangle(new RectangleF(Pivot.X, Pivot.Y, Bounds.Width, Math.Max(MinimumSize.Height, 12 + Owner.Timeline.SequenceCount * SequenceHeight))));
+            Bounds = (RectangleF)GH_Convert.ToRectangle(new RectangleF(Pivot.X, Pivot.Y, Bounds.Width, Math.Max(MinimumSize.Height, 12 + (Owner.Timeline.SequenceCount * SequenceHeight))));
 
             sequenceLayouts.Clear();
             sequenceLayouts.AddRange(Owner.Timeline.Sequences.Values.Select(x => new SequenceLayout(x)));
+            foreach (SequenceLayout seq in sequenceLayouts)
+            {
+                if (seq.Owner is ComponentSequence sq)
+                {
+                    sq.Document = doc;
+                }
+            }
             sequenceLayouts.Sort((a, b) =>
             {
                 // Sort by position in GH document
-                if (a.Owner is ComponentSequence csa && b.Owner is ComponentSequence csb)
-                {
-                    return csa.GetDocumentObject(doc).Attributes.Pivot.Y.CompareTo(csb.GetDocumentObject(doc).Attributes.Pivot.Y);
-                }
-                return a.Owner.Name.CompareTo(b.Owner.Name);
+                return a.Owner is ComponentSequence csa && b.Owner is ComponentSequence csb
+                    ? csa.DocumentObject.Attributes.Pivot.Y.CompareTo(csb.DocumentObject.Attributes.Pivot.Y)
+                    : a.Owner.Name.CompareTo(b.Owner.Name);
             });
 
             int nameAreaWidth = 0;
@@ -72,7 +77,7 @@ namespace Plugin
                 nameAreaWidth = Math.Min(64, Math.Max(nameAreaWidth, sequence.NickNameWidth));
             }
 
-            RectangleF timelineBounds = new RectangleF(Bounds.X + nameAreaWidth + Pad * 2, Bounds.Y + Pad, Bounds.Width - nameAreaWidth - Pad * 3, Bounds.Height - Pad * 2);
+            RectangleF timelineBounds = new RectangleF(Bounds.X + nameAreaWidth + (Pad * 2), Bounds.Y + Pad, Bounds.Width - nameAreaWidth - (Pad * 3), Bounds.Height - (Pad * 2));
             ContentGraphicsBounds = timelineBounds;
             timelineBounds.Inflate(-6f, 0f);
             ContentBounds = timelineBounds;
@@ -80,7 +85,7 @@ namespace Plugin
             CurrentTimeXPosition = (float)MathUtils.Remap((double)Owner.CurrentValue, 0, 1, ContentBounds.X, ContentBounds.X + ContentBounds.Width);
             ProgressGrabBarBounds = new RectangleF(CurrentTimeXPosition - 2, ContentBounds.Y, 4, ContentBounds.Height);
 
-            ProgressTextBounds = new RectangleF(CurrentTimeXPosition - 24 / 2f, ContentBounds.Top - 22f, 24, 12);
+            ProgressTextBounds = new RectangleF(CurrentTimeXPosition - (24 / 2f), ContentBounds.Top - 22f, 24, 12);
 
             RectangleF nameRegion = new RectangleF(Bounds.X + Pad, Bounds.Y + Pad, nameAreaWidth, ContentBounds.Height);
             LayoutSequences(nameRegion, ContentBounds);
@@ -88,14 +93,17 @@ namespace Plugin
 
         private void LayoutSequences(RectangleF nameRegion, RectangleF contentRegion)
         {
-            if (sequenceLayouts.Count == 0) return;
+            if (sequenceLayouts.Count == 0)
+            {
+                return;
+            }
 
             float spacing = ContentBounds.Height / (Owner.Timeline.Sequences.Count + 1);
 
             float offset = spacing + contentRegion.Top;
             foreach (SequenceLayout sequence in sequenceLayouts)
             {
-                RectangleF sequenceBounds = new RectangleF(ContentBounds.X, offset - SequenceHeight / 2, ContentBounds.Width, SequenceHeight);
+                RectangleF sequenceBounds = new RectangleF(ContentBounds.X, offset - (SequenceHeight / 2), ContentBounds.Width, SequenceHeight);
                 RectangleF nameBounds = new RectangleF(nameRegion.X, sequenceBounds.Y, nameRegion.Width, sequenceBounds.Height);
                 sequence.Layout(sequenceBounds, nameBounds);
                 offset += spacing;
@@ -157,7 +165,7 @@ namespace Plugin
 
         private void RenderSequences(Graphics graphics)
         {
-            foreach (SequenceLayout sq in this.sequenceLayouts)
+            foreach (SequenceLayout sq in sequenceLayouts)
             {
                 float centerY = (sq.Bounds.Bottom + sq.Bounds.Top) / 2;
 
@@ -282,7 +290,7 @@ namespace Plugin
                 case MouseButtons.None:
                     if (IsMouseOverSliderHandle())
                     {
-                        Instances.CursorServer.AttachCursor(sender, "GH_NumericSlider");
+                        _ = Instances.CursorServer.AttachCursor(sender, "GH_NumericSlider");
                         return GH_ObjectResponse.Handled;
                     }
                     break;

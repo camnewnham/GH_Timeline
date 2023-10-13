@@ -6,6 +6,7 @@ namespace Plugin
 {
     public enum Easing : int
     {
+        None = 0,
         Linear = 1,
         Square = 2,
         Cubic = 3,
@@ -16,7 +17,7 @@ namespace Plugin
     {
         public static double Remap(double value, double low1, double high1, double low2, double high2)
         {
-            return low2 + (value - low1) * (high2 - low2) / (high1 - low1);
+            return low2 + ((value - low1) * (high2 - low2) / (high1 - low1));
         }
 
         public static double EaseIn(double t, Easing easing)
@@ -26,7 +27,7 @@ namespace Plugin
 
         public static double EaseOut(double t, Easing easing)
         {
-            return 1 - (EaseIn(1 - t, easing));
+            return 1 - EaseIn(1 - t, easing);
         }
         public static double EaseInOut(double t, Easing startEase, Easing endEase)
         {
@@ -35,7 +36,7 @@ namespace Plugin
 
         public static double Lerp(double a, double b, double t)
         {
-            return (a + (b - a) * t);
+            return a + ((b - a) * t);
         }
 
         public static string GetName(this IGH_DocumentObject docObj)
@@ -44,11 +45,7 @@ namespace Plugin
             {
                 return slider.ImpliedNickName;
             }
-            if (!string.IsNullOrEmpty(docObj.NickName))
-            {
-                return docObj.NickName;
-            }
-            return docObj.Name;
+            return !string.IsNullOrEmpty(docObj.NickName) ? docObj.NickName : docObj.Name;
         }
     }
 }

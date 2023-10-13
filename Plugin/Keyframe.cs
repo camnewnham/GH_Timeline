@@ -63,7 +63,8 @@ namespace Plugin
 
         public override int InterpolateState(IGH_DocumentObject obj, ComponentKeyframe other, double interpolation)
         {
-            double value = m_state * (1 - interpolation) + ((NumberSliderKeyframe)other).m_state * interpolation;
+            NumberSliderKeyframe otherNs = other as NumberSliderKeyframe;
+            double value = MathUtils.Remap(MathUtils.EaseInOut(interpolation, Easing.Linear, Easing.Linear), 0, 1, m_state, otherNs.m_state);
             (obj as GH_NumberSlider).SetSliderValue((decimal)value);
             return value.GetHashCode();
 

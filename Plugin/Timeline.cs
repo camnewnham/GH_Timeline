@@ -8,6 +8,8 @@ namespace Plugin
 {
     public class Timeline
     {
+        internal static Guid MainCameraSequenceId => Guid.Empty;
+
         public Dictionary<Guid, Sequence> Sequences { get; private set; } = new Dictionary<Guid, Sequence>();
 
         public int SequenceCount => Sequences.Count;
@@ -17,25 +19,25 @@ namespace Plugin
         {
             foreach (Sequence sq in Sequences.Values)
             {
-                sq.SetTime(time, doc);
+                _ = sq.SetTime(time, doc);
             }
         }
 
-        public bool RemoveSequence(Guid instanceGuid)
+        public bool RemoveSequence(Guid guid)
         {
-            return Sequences.Remove(instanceGuid);
+            return Sequences.Remove(guid);
         }
 
-        public bool TryGetSequence(Guid instanceGuid, out Sequence sequence)
+        public bool TryGetSequence(Guid guid, out Sequence sequence)
         {
-            return Sequences.TryGetValue(instanceGuid, out sequence);
+            return Sequences.TryGetValue(guid, out sequence);
         }
 
-        public Sequence EnsureSequence(Guid instanceGuid)
+        public Sequence EnsureSequence(Guid guid, Func<Sequence> instantiator)
         {
-            if (!TryGetSequence(instanceGuid, out Sequence sequence))
+            if (!TryGetSequence(guid, out Sequence sequence))
             {
-                Sequences[instanceGuid] = sequence = new ComponentSequence(instanceGuid);
+                Sequences[guid] = sequence = instantiator();
             }
             return sequence;
         }
@@ -44,7 +46,7 @@ namespace Plugin
         {
             foreach (Sequence seq in Sequences.Values)
             {
-                seq.SetTime(time, doc);
+                _ = seq.SetTime(time, doc);
             }
         }
 
@@ -67,15 +69,15 @@ namespace Plugin
         {
             IGH_DocumentObject docObj = stateAwareObj as IGH_DocumentObject;
             StateAwareKeyframe keyframe = new StateAwareKeyframe(time);
-            keyframe.SaveState(docObj);
-            EnsureSequence(docObj.InstanceGuid).AddKeyframe(keyframe);
+            _ = keyframe.SaveState(docObj);
+            EnsureSequence(docObj.InstanceGuid, () => new ComponentSequence(docObj.InstanceGuid, docObj.OnPingDocument())).AddKeyframe(keyframe);
         }
 
         public void AddKeyframe(GH_NumberSlider numberSlider, double time)
         {
             NumberSliderKeyframe keyframe = new NumberSliderKeyframe(time);
-            keyframe.SaveState(numberSlider);
-            EnsureSequence(numberSlider.InstanceGuid).AddKeyframe(keyframe);
+            _ = keyframe.SaveState(numberSlider);
+            EnsureSequence(numberSlider.InstanceGuid, () => new ComponentSequence(numberSlider.InstanceGuid, numberSlider.OnPingDocument())).AddKeyframe(keyframe);
 
         }
     }

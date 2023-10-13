@@ -14,6 +14,8 @@ namespace Plugin
         protected override System.Drawing.Bitmap Icon => null;
         public override GH_ParamKind Kind => GH_ParamKind.floating;
 
+        private bool m_hasDeserialized = false;
+
         public override string InstanceDescription => $"Timeline\n{Timeline.SequenceCount} Sequences\n{Timeline.KeyframeCount} Keyframes";
 
         public Timeline Timeline;
@@ -38,21 +40,28 @@ namespace Plugin
 
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
-            Menu_AppendSeparator(menu);
+            _ = Menu_AppendSeparator(menu);
 
-            Menu_AppendItem(menu, Recording ? "Stop Recording" : "Record", (obj, arg) =>
+            _ = Menu_AppendItem(menu, Recording ? "Recording..." : "Record", (obj, arg) =>
             {
                 Recording = !Recording;
                 Grasshopper.Instances.ActiveCanvas.Invalidate();
             }, true, Recording);
 
-            Menu_AppendItem(menu, "Animate…", (obj, arg) =>
+
+            _ = Menu_AppendItem(menu, "Animate Camera", (obj, arg) =>
+            {
+                AnimateCamera = !AnimateCamera;
+                Grasshopper.Instances.ActiveCanvas.Invalidate();
+            }, true, AnimateCamera);
+
+            _ = Menu_AppendItem(menu, "Animate...", (obj, arg) =>
             {
                 GH_SliderAnimator gH_SliderAnimator = new GH_SliderAnimator(this);
                 if (gH_SliderAnimator.SetupAnimationProperties())
                 {
                     Recording = false;
-                    gH_SliderAnimator.StartAnimation();
+                    _ = gH_SliderAnimator.StartAnimation();
                 }
             });
         }
@@ -63,6 +72,17 @@ namespace Plugin
             document.SolutionEnd += OnSolutionEndRecordState;
             document.SolutionStart += OnSolutionStartRecordState;
             document.ObjectsDeleted += OnDocumentObjectsDeleted;
+
+            if (!m_hasDeserialized)
+            {
+                OnFirstAddToDocument();
+            }
+        }
+
+        public void OnFirstAddToDocument()
+        {
+            // Default to enabling camera tracking
+            AnimateCamera = true;
         }
 
         public override void RemovedFromDocument(GH_Document document)
@@ -90,6 +110,7 @@ namespace Plugin
             SetSliderValue((decimal)newValue);
             ExpireSolution(true);
         }
+
         public void InstanceGuidsChanged(SortedDictionary<Guid, Guid> map)
         {
             foreach (KeyValuePair<Guid, Guid> kvp in map)
@@ -100,6 +121,33 @@ namespace Plugin
                 }
             }
         }
+
+        #region Camera
+
+        private bool m_animateCamera = false;
+        public bool AnimateCamera
+        {
+            get => m_animateCamera;
+            set
+            {
+                if (value != m_animateCamera)
+                {
+                    m_animateCamera = value;
+                    if (m_animateCamera)
+                    {
+                        _ = Timeline.EnsureSequence(Timeline.MainCameraSequenceId, () => new CameraSequence());
+                        Attributes.ExpireLayout();
+                    }
+                    else
+                    {
+                        _ = Timeline.RemoveSequence(Timeline.MainCameraSequenceId);
+                        Attributes.ExpireLayout();
+                    }
+                }
+            }
+        }
+
+        #endregion
 
         #region Recording
         /// <summary>
@@ -146,7 +194,7 @@ namespace Plugin
                 activeObj.Phase == GH_SolutionPhase.Blank
             ))
             {
-                m_expiredObjects.Add(obj);
+                _ = m_expiredObjects.Add(obj);
             }
         }
 
@@ -162,15 +210,18 @@ namespace Plugin
             if (Phase == GH_SolutionPhase.Blank)
             {
                 CollectData();
-                VolatileData.AllData(true).FirstOrDefault().CastTo(out double time);
+                _ = VolatileData.AllData(true).FirstOrDefault().CastTo(out double time);
                 Timeline.OnTimeChanged(time, OnPingDocument());
             }
         }
 
         #endregion // Recording
 
+        #region IO
+
         public override bool Read(GH_IReader reader)
         {
+            m_hasDeserialized = true;
             return base.Read(reader);
         }
 
@@ -178,5 +229,7 @@ namespace Plugin
         {
             return base.Write(writer);
         }
+
+        #endregion
     }
 }
