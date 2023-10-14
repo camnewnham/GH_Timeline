@@ -40,7 +40,7 @@ namespace Plugin
         /// </summary>
 
 
-        private readonly List<SequenceLayout> sequenceLayouts = new List<SequenceLayout>();
+        private readonly List<SequenceLayout> sequences = new List<SequenceLayout>();
         private readonly TimelineHandleLayout handle;
 
         protected override void Layout()
@@ -48,16 +48,16 @@ namespace Plugin
             GH_Document doc = Owner.OnPingDocument();
             Bounds = (RectangleF)GH_Convert.ToRectangle(new RectangleF(Pivot.X, Pivot.Y, Bounds.Width, Math.Max(MinimumSize.Height, 12 + (Owner.Timeline.SequenceCount * SequenceHeight))));
 
-            sequenceLayouts.Clear();
-            sequenceLayouts.AddRange(Owner.Timeline.Sequences.Values.Select(x => new SequenceLayout(this, x)));
-            foreach (SequenceLayout seq in sequenceLayouts)
+            sequences.Clear();
+            sequences.AddRange(Owner.Timeline.Sequences.Values.Select(x => new SequenceLayout(this, x)));
+            foreach (SequenceLayout seq in sequences)
             {
                 if (seq.Sequence is ComponentSequence sq)
                 {
                     sq.Document = doc;
                 }
             }
-            sequenceLayouts.Sort((a, b) =>
+            sequences.Sort((a, b) =>
             {
                 // Sort by position in GH document
                 return a.Sequence is ComponentSequence csa && b.Sequence is ComponentSequence csb ? csa.DocumentObject.Attributes.Pivot.Y.CompareTo(csb.DocumentObject.Attributes.Pivot.Y) :
@@ -65,7 +65,7 @@ namespace Plugin
             });
 
             int nameAreaWidth = 0;
-            foreach (SequenceLayout sequence in sequenceLayouts)
+            foreach (SequenceLayout sequence in sequences)
             {
                 nameAreaWidth = Math.Min(64, Math.Max(nameAreaWidth, sequence.NickNameWidth));
             }
@@ -83,7 +83,7 @@ namespace Plugin
 
         private void LayoutSequences(RectangleF nameRegion, RectangleF contentRegion)
         {
-            if (sequenceLayouts.Count == 0)
+            if (sequences.Count == 0)
             {
                 return;
             }
@@ -91,7 +91,7 @@ namespace Plugin
             float spacing = ContentBounds.Height / (Owner.Timeline.Sequences.Count + 1);
 
             float offset = spacing + contentRegion.Top;
-            foreach (SequenceLayout sequence in sequenceLayouts)
+            foreach (SequenceLayout sequence in sequences)
             {
                 RectangleF sequenceBounds = new RectangleF(ContentBounds.X, offset - ((SequenceHeight + Pad) / 2), ContentBounds.Width, SequenceHeight + Pad);
                 RectangleF nameBounds = new RectangleF(nameRegion.X, sequenceBounds.Y, nameRegion.Width, sequenceBounds.Height);
@@ -155,7 +155,7 @@ namespace Plugin
 
         private void RenderSequences(Graphics graphics)
         {
-            foreach (SequenceLayout sq in sequenceLayouts)
+            foreach (SequenceLayout sq in sequences)
             {
                 float centerY = (sq.Bounds.Bottom + sq.Bounds.Top) / 2;
 
@@ -204,29 +204,15 @@ namespace Plugin
 
         #region Mouse
 
-        private PointF m_mousePosition;
-        private PointF m_mouseDelta;
-        private readonly bool m_isDraggingSlider;
-
-        private bool IsMouseOverSliderHandle()
+        internal bool TryGetKeyframe(PointF canvasPosition, out KeyframeLayout keyframe)
         {
-            return handle.Bounds.Contains(m_mousePosition);
-        }
-
-        private bool IsMouseOverTimelineBounds()
-        {
-            return ContentGraphicsBounds.Contains(m_mousePosition);
-        }
-
-        internal bool IsMouseOverKeyframe(out KeyframeLayout keyframe)
-        {
-            foreach (SequenceLayout sq in sequenceLayouts)
+            foreach (SequenceLayout sq in sequences)
             {
-                if (sq.Bounds.Contains(m_mousePosition))
+                if (sq.Bounds.Contains(canvasPosition))
                 {
                     foreach (KeyframeLayout kf in sq.KeyframeLayouts)
                     {
-                        if (kf.Bounds.Contains(m_mousePosition))
+                        if (kf.Bounds.Contains(canvasPosition))
                         {
                             keyframe = kf;
                             return true;
@@ -238,64 +224,34 @@ namespace Plugin
             return false;
         }
 
-        private IGH_ResponsiveObject m_capturedResponder;
+        private readonly InputForwarder m_inputForwarder = new InputForwarder();
 
-        private IEnumerable<IGH_ResponsiveObject> InputResponders()
+        private IEnumerable<InputHandler> InputHandlers()
         {
-            if (m_capturedResponder != null)
-            {
-                yield return m_capturedResponder;
-            }
             yield return handle;
+            foreach (SequenceLayout sq in sequences)
+            {
+                yield return sq;
+            }
         }
 
         public override GH_ObjectResponse RespondToMouseMove(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
-            m_mouseDelta = new PointF(e.CanvasX - m_mousePosition.X, e.CanvasY - m_mousePosition.Y);
-            m_mousePosition = e.CanvasLocation;
-
-            foreach (IGH_ResponsiveObject responder in InputResponders())
-            {
-                GH_ObjectResponse response = responder.RespondToMouseMove(sender, e);
-                switch (response)
-                {
-                    case GH_ObjectResponse.Release:
-                        m_capturedResponder = null;
-                        return response;
-                    case GH_ObjectResponse.Handled:
-                        return response;
-                    case GH_ObjectResponse.Ignore:
-                        break;
-                    case GH_ObjectResponse.Capture:
-                        return GH_ObjectResponse.Capture;
-                }
-            }
-
-            return base.RespondToMouseMove(sender, e);
+            m_inputForwarder.InputHandlers = InputHandlers();
+            return m_inputForwarder.RespondToMouseMove(sender, e);
         }
 
         public override GH_ObjectResponse RespondToMouseUp(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
-            foreach (IGH_ResponsiveObject responder in InputResponders())
+            m_inputForwarder.InputHandlers = InputHandlers();
+            if (m_inputForwarder.RespondToMouseUp(sender, e) is GH_ObjectResponse res && res != GH_ObjectResponse.Ignore)
             {
-                GH_ObjectResponse response = responder.RespondToMouseUp(sender, e);
-                switch (response)
-                {
-                    case GH_ObjectResponse.Release:
-                        m_capturedResponder = null;
-                        return response;
-                    case GH_ObjectResponse.Handled:
-                        return response;
-                    case GH_ObjectResponse.Ignore:
-                        break;
-                    case GH_ObjectResponse.Capture:
-                        return GH_ObjectResponse.Capture;
-                }
+                return res;
             }
 
             if (e.Button == MouseButtons.Right)
             {
-                if (IsMouseOverKeyframe(out KeyframeLayout kf))
+                if (TryGetKeyframe(e.CanvasLocation, out KeyframeLayout kf))
                 {
                     return kf.RespondToMouseUp(sender, e);
                 }
@@ -305,50 +261,16 @@ namespace Plugin
 
         public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
-            foreach (IGH_ResponsiveObject responder in InputResponders())
-            {
-                GH_ObjectResponse response = responder.RespondToMouseDown(sender, e);
-                switch (response)
-                {
-                    case GH_ObjectResponse.Release:
-                        if (responder != m_capturedResponder)
-                        {
-                            throw new InvalidOperationException("A captured input response was released but it was not the current responder.");
-                        }
-                        m_capturedResponder = null;
-                        return response;
-                    case GH_ObjectResponse.Handled:
-                        return response;
-                    case GH_ObjectResponse.Ignore:
-                        break;
-                    case GH_ObjectResponse.Capture:
-                        return GH_ObjectResponse.Capture;
-                }
-            }
-            return base.RespondToMouseDown(sender, e);
+            m_inputForwarder.InputHandlers = InputHandlers();
+            return m_inputForwarder.RespondToMouseDown(sender, e);
         }
 
         public override GH_ObjectResponse RespondToMouseDoubleClick(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
-            foreach (IGH_ResponsiveObject responder in InputResponders())
+            m_inputForwarder.InputHandlers = InputHandlers();
+            if (m_inputForwarder.RespondToMouseDoubleClick(sender, e) is GH_ObjectResponse res && res != GH_ObjectResponse.Ignore)
             {
-                GH_ObjectResponse response = responder.RespondToMouseDoubleClick(sender, e);
-                switch (response)
-                {
-                    case GH_ObjectResponse.Release:
-                        if (responder != m_capturedResponder)
-                        {
-                            throw new InvalidOperationException("A captured input response was released but it was not the current responder.");
-                        }
-                        m_capturedResponder = null;
-                        return response;
-                    case GH_ObjectResponse.Handled:
-                        return response;
-                    case GH_ObjectResponse.Ignore:
-                        break;
-                    case GH_ObjectResponse.Capture:
-                        return GH_ObjectResponse.Capture;
-                }
+                return res;
             }
 
             switch (e.Button)
@@ -357,7 +279,6 @@ namespace Plugin
                     Owner.Recording = !Owner.Recording;
                     Instances.ActiveCanvas.Invalidate();
                     return GH_ObjectResponse.Handled;
-
             }
 
             return base.RespondToMouseDoubleClick(sender, e);

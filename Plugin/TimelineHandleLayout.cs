@@ -2,13 +2,14 @@
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
 namespace Plugin
 {
-    public class TimelineHandleLayout : IGH_ResponsiveObject
+    public class TimelineHandleLayout : InputHandler
     {
         public readonly TimelineComponentAttributes Owner;
         private float CurrentTime => (float)Owner.Owner.CurrentValue;
@@ -91,7 +92,6 @@ namespace Plugin
             m_mouseDelta = new PointF(e.CanvasX - m_mousePosition.X, e.CanvasY - m_mousePosition.Y);
             m_mousePosition = e.CanvasLocation;
 
-
             switch (e.Button)
             {
                 case MouseButtons.None:
@@ -110,7 +110,7 @@ namespace Plugin
                             return GH_ObjectResponse.Handled;
                         }
 
-                        if (Owner.IsMouseOverKeyframe(out KeyframeLayout kf))
+                        if (Owner.TryGetKeyframe(e.CanvasLocation, out KeyframeLayout kf))
                         {
                             Owner.Owner.OnTimelineHandleDragged(kf.Keyframe.Time);
                         }
@@ -164,14 +164,9 @@ namespace Plugin
             return GH_ObjectResponse.Ignore;
         }
 
-        public GH_ObjectResponse RespondToKeyDown(GH_Canvas sender, KeyEventArgs e)
+        public IEnumerable<InputHandler> InputHandlers()
         {
-            return GH_ObjectResponse.Ignore;
-        }
-
-        public GH_ObjectResponse RespondToKeyUp(GH_Canvas sender, KeyEventArgs e)
-        {
-            return GH_ObjectResponse.Ignore;
+            yield break;
         }
     }
 }

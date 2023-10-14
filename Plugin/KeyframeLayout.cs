@@ -2,16 +2,17 @@
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 
 namespace Plugin
 {
 
-    internal class KeyframeLayout
+    internal class KeyframeLayout : InputHandler
     {
         public Keyframe Keyframe;
-        public RectangleF Bounds;
+        public RectangleF Bounds { get; private set; }
         public SequenceLayout Owner;
 
         private bool m_selected = false;
@@ -109,13 +110,12 @@ namespace Plugin
             _ = menu.Items.Add(new ToolStripMenuItem("Delete", null, (obj, arg) =>
             {
                 _ = Owner.Sequence.Remove(Keyframe);
-                Owner.Owner.ExpireLayout();
-                Instances.ActiveCanvas.Invalidate();
+                Owner.Owner.Owner.OnKeyframeChanged();
                 menu.Close();
             }));
         }
 
-        internal GH_ObjectResponse RespondToMouseUp(GH_Canvas sender, GH_CanvasMouseEvent e)
+        public GH_ObjectResponse RespondToMouseUp(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
             Owner.Owner.Selected = false;
             ContextMenuStrip menu = new ContextMenuStrip();
@@ -123,6 +123,22 @@ namespace Plugin
             menu.Show(Instances.ActiveCanvas, new Point(e.ControlLocation.X, e.ControlLocation.Y + 10));
             return GH_ObjectResponse.Handled;
         }
-    }
 
+        public GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            return GH_ObjectResponse.Ignore;
+        }
+
+        public GH_ObjectResponse RespondToMouseMove(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            return GH_ObjectResponse.Ignore;
+        }
+
+        public GH_ObjectResponse RespondToMouseDoubleClick(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            return GH_ObjectResponse.Ignore;
+        }
+
+        public IEnumerable<InputHandler> InputHandlers() { yield break; }
+    }
 }

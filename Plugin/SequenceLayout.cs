@@ -7,12 +7,12 @@ using System.Drawing;
 namespace Plugin
 {
 
-    internal class SequenceLayout
+    internal class SequenceLayout : InputHandler
     {
         public TimelineComponentAttributes Owner;
         public Sequence Sequence;
-        public RectangleF Bounds;
-        public RectangleF NameBounds;
+        public RectangleF Bounds { get; private set; }
+        public RectangleF NameBounds { get; private set; }
 
         public List<KeyframeLayout> KeyframeLayouts = new List<KeyframeLayout>();
 
@@ -60,5 +60,37 @@ namespace Plugin
                 keyframe.Render(graphics);
             }
         }
+
+        #region Input
+
+        public IEnumerable<InputHandler> InputHandlers()
+        {
+            foreach (KeyframeLayout keyframe in KeyframeLayouts)
+            {
+                yield return keyframe;
+            }
+        }
+
+        public GH_ObjectResponse RespondToMouseUp(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            return GH_ObjectResponse.Ignore;
+        }
+
+        public GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            return GH_ObjectResponse.Ignore;
+        }
+
+        public GH_ObjectResponse RespondToMouseMove(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            return GH_ObjectResponse.Ignore;
+        }
+
+        public GH_ObjectResponse RespondToMouseDoubleClick(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            return GH_ObjectResponse.Ignore;
+        }
+
+        #endregion
     }
 }
