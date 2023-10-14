@@ -40,6 +40,18 @@ namespace Plugin
             _ = keyframes.Add(keyframe);
         }
 
+        public bool Remove(Keyframe keyframe)
+        {
+            orderedKeyframes = null;
+            return keyframes.Remove(keyframe);
+        }
+
+        public bool Remove(double keyframeTime)
+        {
+            orderedKeyframes = null;
+            return keyframes.RemoveWhere(x => x.Time == keyframeTime) > 0;
+        }
+
         public abstract bool SetTime(double time, GH_Document doc, RhinoViewport viewport);
     }
 

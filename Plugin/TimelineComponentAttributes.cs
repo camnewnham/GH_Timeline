@@ -15,21 +15,18 @@ namespace Plugin
     public class TimelineComponentAttributes : GH_ResizableAttributes<TimelineComponent>
     {
         private const int Pad = 6;
-        private const int SequenceHeight = 16;
+        private const int SequenceHeight = 10;
         protected override Size MinimumSize => new Size(192, 64);
         protected override Padding SizingBorders => new Padding(6);
         public override bool HasOutputGrip => true;
 
-        public TimelineComponentAttributes(TimelineComponent gradient)
-          : base(gradient)
+        public TimelineComponentAttributes(TimelineComponent owner)
+          : base(owner)
         {
             Bounds = (RectangleF)new Rectangle(0, 0, 250, 64);
+            handle = new TimelineHandleLayout(this);
         }
 
-        /// <summary>
-        /// The area where progress text is drawn (i.e. 25.2%)
-        /// </summary>
-        public RectangleF ProgressTextBounds { get; private set; }
         /// <summary>
         /// The main drawing area for the timeline
         /// </summary>
@@ -41,13 +38,10 @@ namespace Plugin
         /// <summary>
         /// The rectangle that represents the grab bar for the progress slider
         /// </summary>
-        public RectangleF ProgressGrabBarBounds { get; private set; }
-        /// <summary>
-        /// The X position in canvas space of the current time slider.
-        /// </summary>
-        public float CurrentTimeXPosition { get; private set; }
+
 
         private readonly List<SequenceLayout> sequenceLayouts = new List<SequenceLayout>();
+        private readonly TimelineHandleLayout handle;
 
         protected override void Layout()
         {
@@ -55,10 +49,10 @@ namespace Plugin
             Bounds = (RectangleF)GH_Convert.ToRectangle(new RectangleF(Pivot.X, Pivot.Y, Bounds.Width, Math.Max(MinimumSize.Height, 12 + (Owner.Timeline.SequenceCount * SequenceHeight))));
 
             sequenceLayouts.Clear();
-            sequenceLayouts.AddRange(Owner.Timeline.Sequences.Values.Select(x => new SequenceLayout(x)));
+            sequenceLayouts.AddRange(Owner.Timeline.Sequences.Values.Select(x => new SequenceLayout(this, x)));
             foreach (SequenceLayout seq in sequenceLayouts)
             {
-                if (seq.Owner is ComponentSequence sq)
+                if (seq.Sequence is ComponentSequence sq)
                 {
                     sq.Document = doc;
                 }
@@ -66,8 +60,8 @@ namespace Plugin
             sequenceLayouts.Sort((a, b) =>
             {
                 // Sort by position in GH document
-                return a.Owner is ComponentSequence csa && b.Owner is ComponentSequence csb ? csa.DocumentObject.Attributes.Pivot.Y.CompareTo(csb.DocumentObject.Attributes.Pivot.Y) :
-                    a.Owner is CameraSequence ? -1 : a.Owner.Name.CompareTo(b.Owner.Name);
+                return a.Sequence is ComponentSequence csa && b.Sequence is ComponentSequence csb ? csa.DocumentObject.Attributes.Pivot.Y.CompareTo(csb.DocumentObject.Attributes.Pivot.Y) :
+                    a.Sequence is CameraSequence ? -1 : a.Sequence.Name.CompareTo(b.Sequence.Name);
             });
 
             int nameAreaWidth = 0;
@@ -81,10 +75,7 @@ namespace Plugin
             timelineBounds.Inflate(-6f, 0f);
             ContentBounds = timelineBounds;
 
-            CurrentTimeXPosition = (float)MathUtils.Remap((double)Owner.CurrentValue, 0, 1, ContentBounds.X, ContentBounds.X + ContentBounds.Width);
-            ProgressGrabBarBounds = new RectangleF(CurrentTimeXPosition - 2, ContentBounds.Y, 4, ContentBounds.Height);
-
-            ProgressTextBounds = new RectangleF(CurrentTimeXPosition - (24 / 2f), ContentBounds.Top - 22f, 24, 12);
+            handle.Layout(ContentBounds);
 
             RectangleF nameRegion = new RectangleF(Bounds.X + Pad, Bounds.Y + Pad, nameAreaWidth, ContentBounds.Height);
             LayoutSequences(nameRegion, ContentBounds);
@@ -102,7 +93,7 @@ namespace Plugin
             float offset = spacing + contentRegion.Top;
             foreach (SequenceLayout sequence in sequenceLayouts)
             {
-                RectangleF sequenceBounds = new RectangleF(ContentBounds.X, offset - (SequenceHeight / 2), ContentBounds.Width, SequenceHeight);
+                RectangleF sequenceBounds = new RectangleF(ContentBounds.X, offset - ((SequenceHeight + Pad) / 2), ContentBounds.Width, SequenceHeight + Pad);
                 RectangleF nameBounds = new RectangleF(nameRegion.X, sequenceBounds.Y, nameRegion.Width, sequenceBounds.Height);
                 sequence.Layout(sequenceBounds, nameBounds);
                 offset += spacing;
@@ -155,7 +146,7 @@ namespace Plugin
 
                     RenderBackground(graphics);
                     GH_GraphicsUtil.ShadowRectangle(graphics, rectangle);
-                    RenderCurrentTime(graphics);
+                    handle.Render(graphics);
                     RenderSequences(graphics);
                     graphics.DrawRectangle(Pens.Black, rectangle);
                     break;
@@ -173,58 +164,6 @@ namespace Plugin
                     graphics.DrawLine(pen, ContentGraphicsBounds.Left, centerY, ContentGraphicsBounds.Right, centerY);
                 }
                 sq.Render(graphics);
-            }
-        }
-
-        public void RenderCurrentTime(Graphics graphics)
-        {
-            int lineAlpha = GH_Canvas.ZoomFadeLow;
-            if (lineAlpha < 5)
-            {
-                return;
-            }
-
-            // Draw Vertical line
-            using (Pen pen = new Pen(Color.FromArgb(GH_Canvas.ZoomFadeLow, Color.Black), 1f))
-            {
-                GH_GraphicsUtil.ShadowVertical(graphics, CurrentTimeXPosition, ContentBounds.Bottom, ContentBounds.Top, 8f, true, 15);
-                GH_GraphicsUtil.ShadowVertical(graphics, CurrentTimeXPosition, ContentBounds.Bottom, ContentBounds.Top, 8f, false, 15);
-                graphics.DrawLine(pen, CurrentTimeXPosition, ContentBounds.Bottom, CurrentTimeXPosition, ContentBounds.Top);
-            }
-
-            if (m_isDraggingSlider || GH_Canvas.ZoomFadeHigh > 0)
-            {
-                // Draw text capsule tooltip
-
-                string content = (Owner.CurrentValue * 100).ToString("00.0");
-                if (Owner.CurrentValue == 1)
-                {
-                    content = "100";
-                }
-
-                int textAlpha = m_isDraggingSlider ? 255 : GH_Canvas.ZoomFadeHigh;
-
-                using (SolidBrush fill = new SolidBrush(Color.FromArgb((int)(textAlpha * (200f / 255f)), Color.Black)))
-                {
-                    using (GraphicsPath path = GH_CapsuleRenderEngine.CreateRoundedRectangle(ProgressTextBounds, 2f))
-                    {
-                        path.AddPolygon(new PointF[]
-                        {
-                        new PointF(CurrentTimeXPosition,ProgressTextBounds.Bottom + 3f),
-                        new PointF(CurrentTimeXPosition-3f,ProgressTextBounds.Bottom),
-                        new PointF(CurrentTimeXPosition+3f,ProgressTextBounds.Bottom)
-                        });
-
-                        path.FillMode = FillMode.Winding;
-                        graphics.FillPath(fill, path);
-                    }
-                }
-
-                using (SolidBrush brush = new SolidBrush(Color.FromArgb(textAlpha, Color.White)))
-                {
-                    graphics.TextRenderingHint = GH_TextRenderingConstants.GH_SmoothText;
-                    graphics.DrawString(content, GH_FontServer.Small, brush, ProgressTextBounds, GH_TextRenderingConstants.CenterCenter);
-                }
             }
         }
 
@@ -267,16 +206,47 @@ namespace Plugin
 
         private PointF m_mousePosition;
         private PointF m_mouseDelta;
-        private bool m_isDraggingSlider;
+        private readonly bool m_isDraggingSlider;
 
-        public bool IsMouseOverSliderHandle()
+        private bool IsMouseOverSliderHandle()
         {
-            return ProgressGrabBarBounds.Contains(m_mousePosition);
+            return handle.Bounds.Contains(m_mousePosition);
         }
 
-        public bool IsMouseOverTimelineBounds()
+        private bool IsMouseOverTimelineBounds()
         {
             return ContentGraphicsBounds.Contains(m_mousePosition);
+        }
+
+        internal bool IsMouseOverKeyframe(out KeyframeLayout keyframe)
+        {
+            foreach (SequenceLayout sq in sequenceLayouts)
+            {
+                if (sq.Bounds.Contains(m_mousePosition))
+                {
+                    foreach (KeyframeLayout kf in sq.KeyframeLayouts)
+                    {
+                        if (kf.Bounds.Contains(m_mousePosition))
+                        {
+                            keyframe = kf;
+                            return true;
+                        }
+                    }
+                }
+            }
+            keyframe = null;
+            return false;
+        }
+
+        private IGH_ResponsiveObject m_capturedResponder;
+
+        private IEnumerable<IGH_ResponsiveObject> InputResponders()
+        {
+            if (m_capturedResponder != null)
+            {
+                yield return m_capturedResponder;
+            }
+            yield return handle;
         }
 
         public override GH_ObjectResponse RespondToMouseMove(GH_Canvas sender, GH_CanvasMouseEvent e)
@@ -284,74 +254,109 @@ namespace Plugin
             m_mouseDelta = new PointF(e.CanvasX - m_mousePosition.X, e.CanvasY - m_mousePosition.Y);
             m_mousePosition = e.CanvasLocation;
 
-            switch (e.Button)
+            foreach (IGH_ResponsiveObject responder in InputResponders())
             {
-                case MouseButtons.None:
-                    if (IsMouseOverSliderHandle())
-                    {
-                        _ = Instances.CursorServer.AttachCursor(sender, "GH_NumericSlider");
-                        return GH_ObjectResponse.Handled;
-                    }
-                    break;
-                case MouseButtons.Left:
-                    if (m_isDraggingSlider)
-                    {
-                        if ((m_mousePosition.X < ContentGraphicsBounds.Left && Owner.CurrentValue <= 0) ||
-                            (m_mousePosition.X > ContentGraphicsBounds.Right && Owner.CurrentValue >= 1))
-                        {
-                            return GH_ObjectResponse.Handled;
-                        }
-
-                        float pctChange = m_mouseDelta.X / ContentBounds.Width;
-                        Owner.OnTimelineHandleDragged((double)Owner.CurrentValue + pctChange);
-
-                        return GH_ObjectResponse.Handled;
-                    }
-                    break;
+                GH_ObjectResponse response = responder.RespondToMouseMove(sender, e);
+                switch (response)
+                {
+                    case GH_ObjectResponse.Release:
+                        m_capturedResponder = null;
+                        return response;
+                    case GH_ObjectResponse.Handled:
+                        return response;
+                    case GH_ObjectResponse.Ignore:
+                        break;
+                    case GH_ObjectResponse.Capture:
+                        return GH_ObjectResponse.Capture;
+                }
             }
+
             return base.RespondToMouseMove(sender, e);
         }
 
         public override GH_ObjectResponse RespondToMouseUp(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
-            if (e.Button == MouseButtons.Left && m_isDraggingSlider)
+            foreach (IGH_ResponsiveObject responder in InputResponders())
             {
-                m_isDraggingSlider = false;
-                Instances.ActiveCanvas.Invalidate();
-                return GH_ObjectResponse.Release;
+                GH_ObjectResponse response = responder.RespondToMouseUp(sender, e);
+                switch (response)
+                {
+                    case GH_ObjectResponse.Release:
+                        m_capturedResponder = null;
+                        return response;
+                    case GH_ObjectResponse.Handled:
+                        return response;
+                    case GH_ObjectResponse.Ignore:
+                        break;
+                    case GH_ObjectResponse.Capture:
+                        return GH_ObjectResponse.Capture;
+                }
+            }
+
+            if (e.Button == MouseButtons.Right)
+            {
+                if (IsMouseOverKeyframe(out KeyframeLayout kf))
+                {
+                    return kf.RespondToMouseUp(sender, e);
+                }
             }
             return base.RespondToMouseUp(sender, e);
         }
 
         public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
-            switch (e.Button)
+            foreach (IGH_ResponsiveObject responder in InputResponders())
             {
-                case MouseButtons.Left:
-                    if (IsMouseOverSliderHandle())
-                    {
-                        m_isDraggingSlider = true;
-                        Instances.ActiveCanvas.Invalidate();
+                GH_ObjectResponse response = responder.RespondToMouseDown(sender, e);
+                switch (response)
+                {
+                    case GH_ObjectResponse.Release:
+                        if (responder != m_capturedResponder)
+                        {
+                            throw new InvalidOperationException("A captured input response was released but it was not the current responder.");
+                        }
+                        m_capturedResponder = null;
+                        return response;
+                    case GH_ObjectResponse.Handled:
+                        return response;
+                    case GH_ObjectResponse.Ignore:
+                        break;
+                    case GH_ObjectResponse.Capture:
                         return GH_ObjectResponse.Capture;
-                    }
-                    break;
+                }
             }
-
             return base.RespondToMouseDown(sender, e);
         }
 
         public override GH_ObjectResponse RespondToMouseDoubleClick(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
+            foreach (IGH_ResponsiveObject responder in InputResponders())
+            {
+                GH_ObjectResponse response = responder.RespondToMouseDoubleClick(sender, e);
+                switch (response)
+                {
+                    case GH_ObjectResponse.Release:
+                        if (responder != m_capturedResponder)
+                        {
+                            throw new InvalidOperationException("A captured input response was released but it was not the current responder.");
+                        }
+                        m_capturedResponder = null;
+                        return response;
+                    case GH_ObjectResponse.Handled:
+                        return response;
+                    case GH_ObjectResponse.Ignore:
+                        break;
+                    case GH_ObjectResponse.Capture:
+                        return GH_ObjectResponse.Capture;
+                }
+            }
+
             switch (e.Button)
             {
                 case MouseButtons.Left:
-                    if (IsMouseOverTimelineBounds())
-                    {
-                        Owner.Recording = !Owner.Recording;
-                        Instances.ActiveCanvas.Invalidate();
-                        return GH_ObjectResponse.Handled;
-                    }
-                    break;
+                    Owner.Recording = !Owner.Recording;
+                    Instances.ActiveCanvas.Invalidate();
+                    return GH_ObjectResponse.Handled;
 
             }
 

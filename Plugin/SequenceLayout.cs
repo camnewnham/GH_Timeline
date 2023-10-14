@@ -9,16 +9,18 @@ namespace Plugin
 
     internal class SequenceLayout
     {
-        public Sequence Owner;
+        public TimelineComponentAttributes Owner;
+        public Sequence Sequence;
         public RectangleF Bounds;
         public RectangleF NameBounds;
 
         public List<KeyframeLayout> KeyframeLayouts = new List<KeyframeLayout>();
 
-        public int NickNameWidth => GH_FontServer.StringWidth(Owner.Name, GH_FontServer.Small);
+        public int NickNameWidth => GH_FontServer.StringWidth(Sequence.Name, GH_FontServer.Small);
 
-        public SequenceLayout(Sequence owner)
+        public SequenceLayout(TimelineComponentAttributes owner, Sequence sequence)
         {
+            Sequence = sequence;
             Owner = owner;
         }
 
@@ -32,14 +34,13 @@ namespace Plugin
         private void LayoutKeyframes()
         {
             KeyframeLayouts.Clear();
+            _ = (Bounds.Bottom + Bounds.Top) / 2;
 
-            float y = (Bounds.Bottom + Bounds.Top) / 2;
-
-            foreach (Keyframe keyframe in Owner.OrderedKeyframes)
+            foreach (Keyframe keyframe in Sequence.OrderedKeyframes)
             {
-                float x = (float)MathUtils.Remap(keyframe.Time, 0, 1, Bounds.Left, Bounds.Right);
-                KeyframeLayout keyframeLayout = new KeyframeLayout(keyframe);
-                keyframeLayout.Layout(x, y);
+                _ = (float)MathUtils.Remap(keyframe.Time, 0, 1, Bounds.Left, Bounds.Right);
+                KeyframeLayout keyframeLayout = new KeyframeLayout(this, keyframe);
+                keyframeLayout.Layout(Bounds);
                 KeyframeLayouts.Add(keyframeLayout);
             }
         }
@@ -52,7 +53,7 @@ namespace Plugin
             }
 
             graphics.TextRenderingHint = GH_TextRenderingConstants.GH_SmoothText;
-            graphics.DrawString(Owner.Name, GH_FontServer.Small, Brushes.Black, NameBounds, GH_TextRenderingConstants.FarCenter);
+            graphics.DrawString(Sequence.Name, GH_FontServer.Small, Brushes.Black, NameBounds, GH_TextRenderingConstants.FarCenter);
 
             foreach (KeyframeLayout keyframe in KeyframeLayouts)
             {

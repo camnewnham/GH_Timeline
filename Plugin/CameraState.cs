@@ -6,6 +6,7 @@ namespace Plugin
 {
     public struct CameraState : IEquatable<CameraState>
     {
+        public const double kEpsilon = 0.00001;
         public enum CameraProjection
         {
             Parallel,
@@ -119,9 +120,9 @@ namespace Plugin
 
         public bool Equals(CameraState other)
         {
-            return Location.Equals(other.Location) &&
-                Target.Equals(other.Target) &&
-                Up.Equals(other.Up) &&
+            return Location.EpsilonEquals(other.Location, kEpsilon) &&
+                Target.EpsilonEquals(other.Target, kEpsilon) &&
+                Up.EpsilonEquals(other.Up, kEpsilon) &&
                 LensLength.Equals(other.LensLength) &&
                 Projection.Equals(other.Projection);
         }

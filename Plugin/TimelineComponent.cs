@@ -88,7 +88,7 @@ namespace Plugin
                 OnFirstAddToDocument();
             }
 
-            m_cameraTracker = new CameraTracker();
+            m_cameraTracker = new CameraTracker(this);
             m_cameraTracker.OnCameraStateChanged += OnCameraStateChange;
         }
 
@@ -145,6 +145,11 @@ namespace Plugin
             ExpireSolution(true);
         }
 
+        internal void OnKeyframeChanged()
+        {
+            ExpireSolution(true);
+        }
+
         public void InstanceGuidsChanged(SortedDictionary<Guid, Guid> map)
         {
             foreach (KeyValuePair<Guid, Guid> kvp in map)
@@ -180,22 +185,33 @@ namespace Plugin
         }
 
 
+        private bool m_recording = false;
+        public bool Recording
+        {
+            get => m_recording;
+            set
+            {
+                m_recording = value;
+                Rhino.RhinoDoc.ActiveDoc.Views.Redraw();
+            }
+        }
+
+
         #region Recording
         /// <summary>
         /// Cache of IGH_DocumentObject that expired during the last solution.
         /// </summary>
         private readonly HashSet<IGH_DocumentObject> m_expiredObjects = new HashSet<IGH_DocumentObject>();
-        public bool Recording { get; set; }
 
         private bool m_wasSliderValueChanged = false;
         private bool m_cameraSliderValueChanged = false;
 
         private void OnSolutionEndRecordState(object sender, GH_SolutionEventArgs e)
         {
+            m_cameraSliderValueChanged = true;
             if (m_wasSliderValueChanged)
             {
                 m_wasSliderValueChanged = false;
-                m_cameraSliderValueChanged = true;
                 return;
             }
 
