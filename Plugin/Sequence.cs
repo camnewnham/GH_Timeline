@@ -52,6 +52,15 @@ namespace Plugin
             return keyframes.RemoveWhere(x => x.Time == keyframeTime) > 0;
         }
 
+        /// <summary>
+        /// Called when a keyframe changes that could influence how this component applies itself. 
+        /// Typically called when a keyframe changes but is not added or removed.
+        /// </summary>
+        public void Invalidate()
+        {
+            orderedKeyframes = null;
+        }
+
         public abstract bool SetTime(double time, GH_Document doc, RhinoViewport viewport);
     }
 

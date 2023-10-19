@@ -18,7 +18,7 @@ namespace Plugin
         public RectangleF Bounds { get; private set; }
         public SequenceLayout Owner;
 
-        private bool m_selected = false;
+        private bool m_menuOpen = false;
 
         public KeyframeLayout(SequenceLayout owner, Keyframe keyframe)
         {
@@ -33,6 +33,25 @@ namespace Plugin
             Bounds = new RectangleF((float)(x - 2), y - 2, 4, 4);
         }
 
+        private bool m_invalidated = false;
+
+        private void ApplyChanges()
+        {
+            if (m_invalidated)
+            {
+                Owner.Sequence.Invalidate();
+                m_invalidated = false;
+                Owner.Owner.Owner.OnKeyframeChanged();
+            }
+        }
+
+        private void Invalidate()
+        {
+            m_invalidated = true;
+            Layout(Owner.Bounds);
+            Instances.ActiveCanvas.Invalidate();
+        }
+
         public void Render(Graphics graphics)
         {
             int alpha = GH_Canvas.ZoomFadeLow;
@@ -41,9 +60,10 @@ namespace Plugin
                 return;
             }
 
-            Color fill = m_selected ? GH_Skin.palette_white_selected.Fill : Color.White;
-            Color stroke = m_selected ? GH_Skin.palette_white_selected.Edge : Color.Black;
-            _ = m_selected ? GH_Skin.palette_white_selected : GH_Skin.palette_white_standard;
+            bool selected = m_menuOpen || m_isDragging;
+
+            Color fill = selected ? GH_Skin.palette_white_selected.Fill : Color.White;
+            Color stroke = selected ? GH_Skin.palette_white_selected.Edge : Color.Black;
             using (SolidBrush brush = new SolidBrush(fill))
             {
                 using (Pen pen = new Pen(stroke))
@@ -125,13 +145,13 @@ namespace Plugin
 
         internal void AppendMenuItems(ToolStripDropDown menu)
         {
-            m_selected = true;
+            m_menuOpen = true;
             Instances.ActiveCanvas.Invalidate();
 
             menu.Closing += (obj, arg) =>
             {
-                m_selected = false;
-                Instances.ActiveCanvas.Invalidate();
+                m_menuOpen = false;
+                ApplyChanges();
             };
 
             _ = menu.Items.Add(new ToolStripMenuItem()
@@ -139,7 +159,6 @@ namespace Plugin
                 Text = Owner.Sequence.Name,
                 Enabled = false,
             });
-            _ = GH_DocumentObject.Menu_AppendSeparator(menu);
 
             NumericUpDown upDown = new NumericUpDown()
             {
@@ -148,7 +167,7 @@ namespace Plugin
                 DecimalPlaces = 4,
                 Increment = (decimal)0.01,
                 Value = (decimal)Keyframe.Time,
-                TextAlign = HorizontalAlignment.Center
+                TextAlign = HorizontalAlignment.Center,
             };
             upDown.ValueChanged += (obj, arg) =>
             {
@@ -158,7 +177,11 @@ namespace Plugin
                 Instances.ActiveCanvas.Invalidate();
             };
 
-            _ = menu.Items.Add(new ToolStripControlHost(upDown));
+            _ = menu.Items.Add(new ToolStripControlHost(upDown)
+            {
+                Width = 200
+            });
+            _ = GH_DocumentObject.Menu_AppendSeparator(menu);
 
             ToolStripDropDownButton easeInDropDown = new ToolStripDropDownButton()
             {
@@ -167,7 +190,8 @@ namespace Plugin
             AppendEnumItems(easeInDropDown.DropDown, Keyframe.EaseIn, res =>
             {
                 Keyframe.EaseIn = res;
-                Owner.Owner.Owner.OnKeyframeChanged();
+                Invalidate();
+                ApplyChanges();
             });
             menu.Items.Add(easeInDropDown);
 
@@ -178,15 +202,19 @@ namespace Plugin
             AppendEnumItems(easeOutDropDown.DropDown, Keyframe.EaseOut, res =>
             {
                 Keyframe.EaseOut = res;
-                Owner.Owner.Owner.OnKeyframeChanged();
+                Invalidate();
+                ApplyChanges();
             });
 
             menu.Items.Add(easeOutDropDown);
 
+            _ = GH_DocumentObject.Menu_AppendSeparator(menu);
+
             _ = menu.Items.Add(new ToolStripMenuItem("Delete", null, (obj, arg) =>
             {
                 _ = Owner.Sequence.Remove(Keyframe);
-                Owner.Owner.Owner.OnKeyframeChanged();
+                Invalidate();
+                ApplyChanges();
                 menu.Close();
             }));
         }
@@ -207,7 +235,17 @@ namespace Plugin
 
         public GH_ObjectResponse RespondToMouseUp(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
-            if (e.Button == MouseButtons.Right)
+            if (e.Button == MouseButtons.Left)
+            {
+                if (m_isDragging)
+                {
+                    m_isDragging = false;
+                    ApplyChanges();
+                    return GH_ObjectResponse.Release;
+                }
+            }
+
+            else if (e.Button == MouseButtons.Right)
             {
                 Owner.Owner.Selected = false;
                 ContextMenuStrip menu = new ContextMenuStrip();
@@ -218,13 +256,58 @@ namespace Plugin
             return GH_ObjectResponse.Ignore;
         }
 
+        private bool m_isDragging = false;
+        private PointF m_mousePosition;
+        private PointF m_mouseDelta;
+
         public GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
+            if (e.Button == MouseButtons.Left)
+            {
+                m_isDragging = true;
+                return GH_ObjectResponse.Capture;
+            }
             return GH_ObjectResponse.Ignore;
         }
 
         public GH_ObjectResponse RespondToMouseMove(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
+            m_mouseDelta = new PointF(e.CanvasX - m_mousePosition.X, e.CanvasY - m_mousePosition.Y);
+            m_mousePosition = e.CanvasLocation;
+
+            switch (e.Button)
+            {
+                case MouseButtons.None:
+                    if (Bounds.Contains(m_mousePosition))
+                    {
+                        _ = Instances.CursorServer.AttachCursor(sender, "GH_NumericSlider");
+                        return GH_ObjectResponse.Handled;
+                    }
+                    break;
+                case MouseButtons.Left:
+                    if (m_isDragging)
+                    {
+                        if ((m_mousePosition.X < Owner.Owner.ContentGraphicsBounds.Left && Keyframe.Time <= 0) ||
+                                    (m_mousePosition.X > Owner.Owner.ContentGraphicsBounds.Right && Keyframe.Time >= 1))
+                        {
+                            return GH_ObjectResponse.Handled;
+                        }
+
+                        double time = Math.Min(1, Math.Max(0, (double)Keyframe.Time + m_mouseDelta.X / Owner.Owner.ContentBounds.Width));
+
+                        // Snap to keyframes on other sequences
+                        if (Owner.Owner.TryGetKeyframe(e.CanvasLocation, out KeyframeLayout kf) && kf.Owner != Owner)
+                        {
+                            time = kf.Keyframe.Time;
+                        }
+
+                        Keyframe.Time = time;
+                        Invalidate();
+
+                        return GH_ObjectResponse.Handled;
+                    }
+                    break;
+            }
             return GH_ObjectResponse.Ignore;
         }
 

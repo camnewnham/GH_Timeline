@@ -47,7 +47,7 @@ namespace Plugin
                 graphics.DrawLine(pen, CurrentTimeXPosition, Owner.ContentBounds.Bottom, CurrentTimeXPosition, Owner.ContentBounds.Top);
             }
 
-            if (m_isDraggingSlider || GH_Canvas.ZoomFadeHigh > 0)
+            if (m_isDragging || GH_Canvas.ZoomFadeHigh > 0)
             {
                 // Draw text capsule tooltip
 
@@ -57,7 +57,7 @@ namespace Plugin
                     content = "100";
                 }
 
-                int textAlpha = m_isDraggingSlider ? 255 : GH_Canvas.ZoomFadeHigh;
+                int textAlpha = m_isDragging ? 255 : GH_Canvas.ZoomFadeHigh;
 
                 using (SolidBrush fill = new SolidBrush(Color.FromArgb((int)(textAlpha * (200f / 255f)), Color.Black)))
                 {
@@ -83,7 +83,7 @@ namespace Plugin
             }
         }
 
-        private bool m_isDraggingSlider = false;
+        private bool m_isDragging = false;
         private PointF m_mousePosition;
         private PointF m_mouseDelta;
 
@@ -102,7 +102,7 @@ namespace Plugin
                     }
                     break;
                 case MouseButtons.Left:
-                    if (m_isDraggingSlider)
+                    if (m_isDragging)
                     {
                         if ((m_mousePosition.X < Owner.ContentGraphicsBounds.Left && CurrentTime <= 0) ||
                             (m_mousePosition.X > Owner.ContentGraphicsBounds.Right && CurrentTime >= 1))
@@ -136,7 +136,7 @@ namespace Plugin
                 case MouseButtons.Left:
                     if (Bounds.Contains(e.CanvasLocation))
                     {
-                        m_isDraggingSlider = true;
+                        m_isDragging = true;
                         Instances.ActiveCanvas.Invalidate();
                         return GH_ObjectResponse.Capture;
                     }
@@ -149,9 +149,9 @@ namespace Plugin
         {
             m_mousePosition = e.CanvasLocation;
 
-            if (e.Button == MouseButtons.Left && m_isDraggingSlider)
+            if (e.Button == MouseButtons.Left && m_isDragging)
             {
-                m_isDraggingSlider = false;
+                m_isDragging = false;
                 Instances.ActiveCanvas.Invalidate();
                 return GH_ObjectResponse.Release;
             }

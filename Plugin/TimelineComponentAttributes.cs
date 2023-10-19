@@ -228,11 +228,11 @@ namespace Plugin
 
         private IEnumerable<InputHandler> InputHandlers()
         {
-            yield return handle;
             foreach (SequenceLayout sq in sequences)
             {
                 yield return sq;
             }
+            yield return handle;
         }
 
         public override GH_ObjectResponse RespondToMouseMove(GH_Canvas sender, GH_CanvasMouseEvent e)
