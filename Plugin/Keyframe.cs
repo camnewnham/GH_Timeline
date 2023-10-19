@@ -52,7 +52,7 @@ namespace Plugin
 
         public bool InterpolateState(RhinoViewport viewport, CameraKeyframe other, double t)
         {
-            CameraState tween = MathUtils.EaseInOut(t, m_state, other.m_state, EaseIn, EaseOut);
+            CameraState tween = MathUtils.EaseInOut(t, m_state, other.m_state, EaseOut, other.EaseIn);
 
             if (!tween.Equals(new CameraState(viewport)))
             {
@@ -96,7 +96,7 @@ namespace Plugin
         public override int InterpolateState(IGH_DocumentObject obj, ComponentKeyframe other, double interpolation)
         {
             NumberSliderKeyframe otherNs = other as NumberSliderKeyframe;
-            double value = MathUtils.EaseInOut(interpolation, m_state, otherNs.m_state, EaseIn, EaseOut);
+            double value = MathUtils.EaseInOut(interpolation, m_state, otherNs.m_state, EaseOut, other.EaseIn);
             (obj as GH_NumberSlider).SetSliderValue((decimal)value);
             return value.GetHashCode();
 

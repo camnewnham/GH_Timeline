@@ -10,9 +10,7 @@ namespace Plugin
         None = 0,
         Linear = 1,
         Square = 2,
-        Cubic = 3,
-        Quartic = 4,
-        Quintic = 5
+        Cubic = 3
     }
     public static class MathUtils
     {
@@ -32,6 +30,19 @@ namespace Plugin
         }
         public static double EaseInOut(double t, Easing startEase, Easing endEase)
         {
+            if (startEase == Easing.None && endEase == Easing.None)
+            {
+                return 0;
+            }
+            else if (startEase == Easing.None)
+            {
+                return EaseOut(t, endEase);
+            }
+            else if (endEase == Easing.None)
+            {
+                return EaseIn(t, startEase);
+            }
+
             return Lerp(EaseIn(t, startEase), EaseOut(t, endEase), t);
         }
         public static double EaseInOut(double t, double from, double to, Easing startEase, Easing endEase)
