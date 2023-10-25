@@ -45,24 +45,11 @@ namespace Plugin
 
         protected override void Layout()
         {
-            GH_Document doc = Owner.OnPingDocument();
             Bounds = (RectangleF)GH_Convert.ToRectangle(new RectangleF(Pivot.X, Pivot.Y, Bounds.Width, Math.Max(MinimumSize.Height, 12 + (Owner.Timeline.SequenceCount * SequenceHeight))));
 
             sequences.Clear();
             sequences.AddRange(Owner.Timeline.Sequences.Values.Select(x => new SequenceLayout(this, x)));
-            foreach (SequenceLayout seq in sequences)
-            {
-                if (seq.Sequence is ComponentSequence sq)
-                {
-                    sq.Document = doc;
-                }
-            }
-            sequences.Sort((a, b) =>
-            {
-                // Sort by position in GH document
-                return a.Sequence is ComponentSequence csa && b.Sequence is ComponentSequence csb ? csa.DocumentObject.Attributes.Pivot.Y.CompareTo(csb.DocumentObject.Attributes.Pivot.Y) :
-                    a.Sequence is CameraSequence ? -1 : a.Sequence.Name.CompareTo(b.Sequence.Name);
-            });
+            sequences.Sort((a, b) => a.Sequence.Sort.CompareTo(b.Sequence.Sort));
 
             int nameAreaWidth = 0;
             foreach (SequenceLayout sequence in sequences)
@@ -157,7 +144,7 @@ namespace Plugin
         {
             foreach (SequenceLayout sq in sequences)
             {
-                float centerY = (sq.Bounds.Bottom + sq.Bounds.Top) / 2;
+                float centerY = (sq.TimelineBounds.Bottom + sq.TimelineBounds.Top) / 2;
 
                 using (Pen pen = new Pen(Color.FromArgb(40 * (int)(GH_Canvas.ZoomFadeLow / 255f), Color.Black), 1f))
                 {

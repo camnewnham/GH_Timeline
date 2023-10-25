@@ -1,16 +1,19 @@
 ﻿using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
+using Newtonsoft.Json;
 using Rhino.Display;
-using System;
 
 namespace Plugin
 {
-    [Serializable]
+
+    [JsonObject(MemberSerialization.OptIn)]
     public abstract class Keyframe
     {
+        [JsonProperty]
         public Easing EaseIn { get; set; } = Easing.Linear;
+        [JsonProperty]
         public Easing EaseOut { get; set; } = Easing.Linear;
-
+        [JsonProperty]
         public double Time { get; set; }
 
         public Keyframe(double time)
@@ -19,6 +22,7 @@ namespace Plugin
         }
     }
 
+    [JsonObject(MemberSerialization.OptIn)]
     public abstract class ComponentKeyframe : Keyframe
     {
         protected ComponentKeyframe(double time) : base(time) { }
@@ -30,8 +34,10 @@ namespace Plugin
         public abstract int SaveState(IGH_DocumentObject obj);
     }
 
+    [JsonObject(MemberSerialization.OptIn)]
     public class CameraKeyframe : Keyframe
     {
+        [JsonProperty]
         private CameraState m_state;
         public CameraKeyframe(double time) : base(time) { }
 
@@ -63,9 +69,10 @@ namespace Plugin
         }
     }
 
-    [Serializable]
+    [JsonObject(MemberSerialization.OptIn)]
     public class StateAwareKeyframe : ComponentKeyframe
     {
+        [JsonProperty]
         private string m_state;
 
         public StateAwareKeyframe(double time) : base(time)
@@ -85,9 +92,10 @@ namespace Plugin
         }
     }
 
-    [Serializable]
+    [JsonObject(MemberSerialization.OptIn)]
     public class NumberSliderKeyframe : ComponentKeyframe
     {
+        [JsonProperty]
         private double m_state;
 
         public NumberSliderKeyframe(double time) : base(time) { }

@@ -1,17 +1,20 @@
-﻿using Grasshopper.GUI;
+﻿using Grasshopper;
+using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Windows.Forms;
 
 namespace Plugin
 {
 
     internal class SequenceLayout : InputHandler
     {
-        public TimelineComponentAttributes Owner;
+        public TimelineComponentAttributes ParentAttributes;
         public Sequence Sequence;
         public RectangleF Bounds { get; private set; }
+        public RectangleF TimelineBounds { get; private set; }
         public RectangleF NameBounds { get; private set; }
 
         public List<KeyframeLayout> KeyframeLayouts = new List<KeyframeLayout>();
@@ -21,26 +24,27 @@ namespace Plugin
         public SequenceLayout(TimelineComponentAttributes owner, Sequence sequence)
         {
             Sequence = sequence;
-            Owner = owner;
+            ParentAttributes = owner;
         }
 
         public void Layout(RectangleF bounds, RectangleF nameBounds)
         {
-            Bounds = bounds;
+            TimelineBounds = bounds;
             NameBounds = nameBounds;
+            Bounds = RectangleF.Union(TimelineBounds, NameBounds);
             LayoutKeyframes();
         }
 
         private void LayoutKeyframes()
         {
             KeyframeLayouts.Clear();
-            _ = (Bounds.Bottom + Bounds.Top) / 2;
+            _ = (TimelineBounds.Bottom + TimelineBounds.Top) / 2;
 
             foreach (Keyframe keyframe in Sequence.OrderedKeyframes)
             {
-                _ = (float)MathUtils.Remap(keyframe.Time, 0, 1, Bounds.Left, Bounds.Right);
+                _ = (float)MathUtils.Remap(keyframe.Time, 0, 1, TimelineBounds.Left, TimelineBounds.Right);
                 KeyframeLayout keyframeLayout = new KeyframeLayout(this, keyframe);
-                keyframeLayout.Layout(Bounds);
+                keyframeLayout.Layout(TimelineBounds);
                 KeyframeLayouts.Add(keyframeLayout);
             }
         }
@@ -73,6 +77,13 @@ namespace Plugin
 
         public GH_ObjectResponse RespondToMouseUp(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
+            if (e.Button == MouseButtons.Right && NameBounds.Contains(e.CanvasLocation))
+            {
+                ContextMenuStrip menu = new ContextMenuStrip();
+                AppendMenuItems(menu);
+                menu.Show(Instances.ActiveCanvas, new Point(e.ControlLocation.X, e.ControlLocation.Y));
+                return GH_ObjectResponse.Handled;
+            }
             return GH_ObjectResponse.Ignore;
         }
 
@@ -89,6 +100,19 @@ namespace Plugin
         public GH_ObjectResponse RespondToMouseDoubleClick(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
             return GH_ObjectResponse.Ignore;
+        }
+
+
+        internal void AppendMenuItems(ToolStripDropDown menu)
+        {
+            _ = GH_DocumentObject.Menu_AppendItem(menu, Sequence.Name, null, false);
+            _ = GH_DocumentObject.Menu_AppendSeparator(menu);
+            _ = GH_DocumentObject.Menu_AppendItem(menu, "Delete", (obj, arg) =>
+            {
+                _ = ParentAttributes.Owner.RecordUndoEvent("Delete Sequence");
+                _ = ParentAttributes.Owner.Timeline.RemoveSequence(Sequence);
+                ParentAttributes.Owner.OnKeyframeChanged();
+            });
         }
 
         #endregion

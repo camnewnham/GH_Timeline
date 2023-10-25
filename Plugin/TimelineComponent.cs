@@ -48,21 +48,28 @@ namespace Plugin
         {
             _ = Menu_AppendSeparator(menu);
 
-            _ = Menu_AppendItem(menu, Recording ? "Recording..." : "Record", (obj, arg) =>
+
+            if (!AnimateCamera)
+            {
+                _ = Menu_AppendItem(menu, "Add Camera", (obj, arg) =>
+                {
+                    AnimateCamera = !AnimateCamera;
+                    Instances.ActiveCanvas.Invalidate();
+                }, true, AnimateCamera);
+
+                _ = Menu_AppendSeparator(menu);
+            }
+
+            _ = Menu_AppendItem(menu, Recording ? "Tracking..." : "Track Changes", (obj, arg) =>
             {
                 Recording = !Recording;
                 Instances.ActiveCanvas.Invalidate();
             }, true, Recording);
 
 
-            _ = Menu_AppendItem(menu, "Animate Camera", (obj, arg) =>
-            {
-                AnimateCamera = !AnimateCamera;
-                Instances.ActiveCanvas.Invalidate();
-            }, true, AnimateCamera);
-
             _ = Menu_AppendItem(menu, "Export Animation...", (obj, arg) =>
             {
+                Recording = false;
                 GH_SliderAnimator gH_SliderAnimator = new GH_SliderAnimator(this);
                 if (gH_SliderAnimator.SetupAnimationProperties())
                 {
@@ -90,6 +97,8 @@ namespace Plugin
 
             m_cameraTracker = new CameraTracker(this);
             m_cameraTracker.OnCameraStateChanged += OnCameraStateChange;
+
+            Timeline.AddedToDocument(document);
         }
 
         private void OnCameraStateChange(CameraState obj)
@@ -107,6 +116,7 @@ namespace Plugin
                 return;
             }
 
+            _ = RecordUndoEvent("Add camera keyframe");
             Timeline.AddKeyframe(obj, (double)CurrentValue);
             Attributes.ExpireLayout();
             Instances.ActiveCanvas.Invalidate();
@@ -128,12 +138,21 @@ namespace Plugin
             base.RemovedFromDocument(document);
         }
 
+        public override void MovedBetweenDocuments(GH_Document oldDocument, GH_Document newDocument)
+        {
+            RemovedFromDocument(oldDocument);
+            AddedToDocument(newDocument);
+        }
+
         private void OnDocumentObjectsDeleted(object sender, GH_DocObjectEventArgs e)
         {
             foreach (IGH_DocumentObject obj in e.Objects)
             {
-                if (Timeline.RemoveSequence(obj.InstanceGuid))
+                if (Timeline.ContainsSequence(obj.InstanceGuid))
                 {
+                    _ = RecordUndoEvent("Sequence removed by component deletion");
+                    _ = e.Document.UndoUtil.MergeRecords(2);
+                    _ = Timeline.RemoveSequence(obj.InstanceGuid);
                     Attributes.ExpireLayout();
                 }
             }
@@ -161,16 +180,15 @@ namespace Plugin
             }
         }
 
-        private bool m_animateCamera = false;
         public bool AnimateCamera
         {
-            get => m_animateCamera;
+            get => Timeline.ContainsSequence(Timeline.MainCameraSequenceId);
             set
             {
-                if (value != m_animateCamera)
+                bool state = AnimateCamera;
+                if (value != state)
                 {
-                    m_animateCamera = value;
-                    if (m_animateCamera)
+                    if (value)
                     {
                         _ = Timeline.EnsureSequence(Timeline.MainCameraSequenceId, () => new CameraSequence());
                         Attributes.ExpireLayout();
@@ -264,6 +282,19 @@ namespace Plugin
             }
         }
 
+        protected override void OnVolatileDataCollected()
+        {
+            base.OnVolatileDataCollected();
+
+            foreach (Sequence seq in Timeline.Sequences.Values)
+            {
+                if (seq.IsValidWhyNot is string reason)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, reason);
+                }
+            }
+        }
+
         #endregion // Recording
 
         #region IO
@@ -271,12 +302,27 @@ namespace Plugin
         public override bool Read(GH_IReader reader)
         {
             m_hasDeserialized = true;
+
+            string serializedTimeline = null;
+            if (reader.TryGetString("timeline", ref serializedTimeline))
+            {
+                Timeline = Serialization.Deserialize(serializedTimeline);
+
+                // In case of re-do
+                if (OnPingDocument() is GH_Document doc)
+                {
+                    Timeline.AddedToDocument(doc);
+                }
+            }
             return base.Read(reader);
         }
 
         public override bool Write(GH_IWriter writer)
         {
+            writer.SetString("timeline", Serialization.Serialize(Timeline));
+
             return base.Write(writer);
+
         }
 
         #endregion

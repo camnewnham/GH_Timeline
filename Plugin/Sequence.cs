@@ -1,4 +1,5 @@
 ﻿using Grasshopper.Kernel;
+using Newtonsoft.Json;
 using Rhino.Display;
 using System;
 using System.Collections.Generic;
@@ -6,12 +7,17 @@ using System.Linq;
 
 namespace Plugin
 {
-
+    [JsonObject(MemberSerialization.OptIn)]
     public abstract class Sequence
     {
-        public abstract string Name { get; }
-        public int KeyframeCount => keyframes.Count;
+        [JsonProperty]
         private readonly HashSet<Keyframe> keyframes = new HashSet<Keyframe>();
+        public abstract string Name { get; }
+        public abstract float Sort { get; }
+        public virtual string IsValidWhyNot => null;
+
+
+        public int KeyframeCount => keyframes.Count;
 
         private List<Keyframe> orderedKeyframes;
 
@@ -29,9 +35,7 @@ namespace Plugin
             }
         }
 
-
         public bool IsEmpty => keyframes.Count == 0;
-
 
         public void AddKeyframe(Keyframe keyframe)
         {
@@ -66,6 +70,7 @@ namespace Plugin
 
     public class CameraSequence : Sequence
     {
+        public override float Sort => -10000;
         public override string Name => "Camera";
 
         public override bool SetTime(double time, GH_Document doc, RhinoViewport viewport)
@@ -90,8 +95,16 @@ namespace Plugin
         }
     }
 
+    [JsonObject(MemberSerialization.OptIn)]
     public class ComponentSequence : Sequence
     {
+        [JsonProperty]
+        private Guid m_instanceGuid;
+
+        public override string IsValidWhyNot => TryGetDocumentObject(out _) ? null : $"Component not found with InstanceGuid {m_instanceGuid}";
+
+        public override float Sort => (m_ghObject?.Attributes.Pivot.Y ?? 0) + 10000;
+
         private GH_Document m_document;
         public GH_Document Document
         {
@@ -101,37 +114,34 @@ namespace Plugin
                 if (value != m_document)
                 {
                     m_document = value;
-                    m_ghObject = null;
+                    m_ghObject = value?.FindObject(InstanceGuid, true);
                 }
             }
         }
-        public IGH_DocumentObject DocumentObject
+
+        public IGH_DocumentObject DocumentObject => TryGetDocumentObject(out IGH_DocumentObject found)
+                    ? found : throw new KeyNotFoundException($"Unable to find document object ({InstanceGuid})");
+
+        public bool TryGetDocumentObject(out IGH_DocumentObject obj)
         {
-            get
+            if (m_ghObject != null)
             {
-                if (m_ghObject == null)
-                {
-                    m_ghObject = Document?.FindObject(InstanceGuid, true);
-
-                    if (m_ghObject == null)
-                    {
-                        throw new KeyNotFoundException($"Unable to find document object to restore state ({InstanceGuid})");
-                    }
-                }
-                return m_ghObject;
+                obj = m_ghObject;
+                return true;
             }
+            m_ghObject = obj = Document?.FindObject(InstanceGuid, true);
+            return obj != null;
         }
 
-        public override string Name => DocumentObject?.GetName() ?? "Component";
+        public override string Name => m_ghObject?.GetName() ?? "Missing";
         /// <summary>
         /// Hashset of the last state. The component corresponding to this sequence will
         /// only be expired if the hashcode changes.
         /// </summary>
-        private int LastStateHashCode = -1;
+        private int m_lastStateHashCode = -1;
 
         private IGH_DocumentObject m_ghObject;
 
-        private Guid m_instanceGuid;
         public Guid InstanceGuid
         {
             get => m_instanceGuid;
@@ -160,7 +170,13 @@ namespace Plugin
         public override bool SetTime(double time, GH_Document doc, RhinoViewport viewport)
         {
             Document = doc;
-            int oldHash = LastStateHashCode;
+
+            if (IsValidWhyNot != null)
+            {
+                return false;
+            }
+
+            int oldHash = m_lastStateHashCode;
             for (int i = 0; i < OrderedKeyframes.Count; i++)
             {
                 ComponentKeyframe current = OrderedKeyframes[i] as ComponentKeyframe;
@@ -169,18 +185,18 @@ namespace Plugin
                 if (next == null // Past last frame or only one keyframe
                     || (i == 0 && current.Time >= time))   // On or before first frame
                 {
-                    LastStateHashCode = current.LoadState(DocumentObject);
+                    m_lastStateHashCode = current.LoadState(DocumentObject);
                     break;
                 }
                 else if (time >= current.Time && time < next.Time) // Between this frame and next 
                 {
                     double fraction = MathUtils.Remap(time, current.Time, next.Time, 0, 1);
-                    LastStateHashCode = current.InterpolateState(DocumentObject, next, fraction);
+                    m_lastStateHashCode = current.InterpolateState(DocumentObject, next, fraction);
                     break;
                 }
             }
 
-            if (oldHash != LastStateHashCode)
+            if (oldHash != m_lastStateHashCode)
             {
                 if (DocumentObject is IGH_ActiveObject activeObj && activeObj.Phase != GH_SolutionPhase.Blank)
                 {
@@ -188,7 +204,7 @@ namespace Plugin
                 }
             }
 
-            return oldHash != LastStateHashCode;
+            return oldHash != m_lastStateHashCode;
         }
     }
 }

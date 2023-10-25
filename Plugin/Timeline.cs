@@ -9,7 +9,7 @@ namespace Plugin
 {
     public class Timeline
     {
-        internal static Guid MainCameraSequenceId => Guid.Empty;
+        internal static Guid MainCameraSequenceId => new Guid("{4B74BBB9-1713-4206-9124-68FD901FA036}");
 
         public Dictionary<Guid, Sequence> Sequences { get; private set; } = new Dictionary<Guid, Sequence>();
 
@@ -28,6 +28,19 @@ namespace Plugin
         {
             return Sequences.Remove(guid);
         }
+        public bool RemoveSequence(Sequence sequence)
+        {
+            Guid id = Guid.Empty;
+            foreach (KeyValuePair<Guid, Sequence> kvp in Sequences)
+            {
+                if (kvp.Value == sequence)
+                {
+                    id = kvp.Key;
+                    break;
+                }
+            }
+            return id != Guid.Empty && Sequences.Remove(id);
+        }
 
         public bool TryGetSequence<T>(Guid guid, out T sequence) where T : Sequence
         {
@@ -38,6 +51,11 @@ namespace Plugin
             };
             sequence = null;
             return false;
+        }
+
+        public bool ContainsSequence(Guid guid)
+        {
+            return Sequences.ContainsKey(guid);
         }
 
         public T EnsureSequence<T>(Guid guid, Func<T> instantiator) where T : Sequence
@@ -61,6 +79,8 @@ namespace Plugin
         {
             switch (obj)
             {
+                case TimelineComponent _:
+                    return false;
                 case GH_NumberSlider slider:
                     AddKeyframe(slider, time);
                     return true;
@@ -92,6 +112,17 @@ namespace Plugin
             CameraKeyframe kf = new CameraKeyframe(time);
             kf.SaveState(cameraState);
             EnsureSequence(Timeline.MainCameraSequenceId, () => new CameraSequence()).AddKeyframe(kf);
+        }
+
+        internal void AddedToDocument(GH_Document document)
+        {
+            foreach (Sequence sq in Sequences.Values)
+            {
+                if (sq is ComponentSequence cs)
+                {
+                    cs.Document = document;
+                }
+            }
         }
     }
 }

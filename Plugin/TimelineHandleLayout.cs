@@ -11,15 +11,15 @@ namespace Plugin
 {
     public class TimelineHandleLayout : InputHandler
     {
-        public readonly TimelineComponentAttributes Owner;
-        private float CurrentTime => (float)Owner.Owner.CurrentValue;
+        public readonly TimelineComponentAttributes ParentAttributes;
+        private float CurrentTime => (float)ParentAttributes.Owner.CurrentValue;
         public float CurrentTimeXPosition { get; private set; }
         public RectangleF Bounds { get; private set; }
         public RectangleF TextBounds { get; private set; }
 
         public TimelineHandleLayout(TimelineComponentAttributes owner)
         {
-            Owner = owner;
+            ParentAttributes = owner;
         }
 
         public void Layout(RectangleF timelineBounds)
@@ -42,9 +42,9 @@ namespace Plugin
             // Draw Vertical line
             using (Pen pen = new Pen(Color.FromArgb(GH_Canvas.ZoomFadeLow, Color.Black), 1f))
             {
-                GH_GraphicsUtil.ShadowVertical(graphics, CurrentTimeXPosition, Owner.ContentBounds.Bottom, Owner.ContentBounds.Top, 8f, true, 15);
-                GH_GraphicsUtil.ShadowVertical(graphics, CurrentTimeXPosition, Owner.ContentBounds.Bottom, Owner.ContentBounds.Top, 8f, false, 15);
-                graphics.DrawLine(pen, CurrentTimeXPosition, Owner.ContentBounds.Bottom, CurrentTimeXPosition, Owner.ContentBounds.Top);
+                GH_GraphicsUtil.ShadowVertical(graphics, CurrentTimeXPosition, ParentAttributes.ContentBounds.Bottom, ParentAttributes.ContentBounds.Top, 8f, true, 15);
+                GH_GraphicsUtil.ShadowVertical(graphics, CurrentTimeXPosition, ParentAttributes.ContentBounds.Bottom, ParentAttributes.ContentBounds.Top, 8f, false, 15);
+                graphics.DrawLine(pen, CurrentTimeXPosition, ParentAttributes.ContentBounds.Bottom, CurrentTimeXPosition, ParentAttributes.ContentBounds.Top);
             }
 
             if (m_isDragging || GH_Canvas.ZoomFadeHigh > 0)
@@ -104,20 +104,21 @@ namespace Plugin
                 case MouseButtons.Left:
                     if (m_isDragging)
                     {
-                        if ((m_mousePosition.X < Owner.ContentGraphicsBounds.Left && CurrentTime <= 0) ||
-                            (m_mousePosition.X > Owner.ContentGraphicsBounds.Right && CurrentTime >= 1))
+                        // Ignore drag outside of X bounds
+                        if ((m_mousePosition.X < ParentAttributes.ContentGraphicsBounds.Left && CurrentTime <= 0) ||
+                            (m_mousePosition.X > ParentAttributes.ContentGraphicsBounds.Right && CurrentTime >= 1))
                         {
                             return GH_ObjectResponse.Handled;
                         }
 
-                        if (Owner.TryGetKeyframe(e.CanvasLocation, out KeyframeLayout kf))
+                        if (ParentAttributes.TryGetKeyframe(e.CanvasLocation, out KeyframeLayout kf))
                         {
-                            Owner.Owner.OnTimelineHandleDragged(kf.Keyframe.Time);
+                            ParentAttributes.Owner.OnTimelineHandleDragged(kf.Keyframe.Time);
                         }
                         else
                         {
-                            float pctChange = m_mouseDelta.X / Owner.ContentBounds.Width;
-                            Owner.Owner.OnTimelineHandleDragged((double)CurrentTime + pctChange);
+                            float pctChange = m_mouseDelta.X / ParentAttributes.ContentBounds.Width;
+                            ParentAttributes.Owner.OnTimelineHandleDragged((double)CurrentTime + pctChange);
                         }
 
                         return GH_ObjectResponse.Handled;
@@ -137,6 +138,7 @@ namespace Plugin
                     if (Bounds.Contains(e.CanvasLocation))
                     {
                         m_isDragging = true;
+                        _ = ParentAttributes.Owner.RecordUndoEvent("Drag timeline handle");
                         Instances.ActiveCanvas.Invalidate();
                         return GH_ObjectResponse.Capture;
                     }

@@ -11,18 +11,17 @@ using System.Windows.Forms;
 
 namespace Plugin
 {
-
     internal class KeyframeLayout : InputHandler
     {
         public Keyframe Keyframe;
         public RectangleF Bounds { get; private set; }
-        public SequenceLayout Owner;
+        public SequenceLayout OwnerLayout;
 
         private bool m_menuOpen = false;
 
         public KeyframeLayout(SequenceLayout owner, Keyframe keyframe)
         {
-            Owner = owner;
+            OwnerLayout = owner;
             Keyframe = keyframe;
         }
 
@@ -39,16 +38,20 @@ namespace Plugin
         {
             if (m_invalidated)
             {
-                Owner.Sequence.Invalidate();
+                OwnerLayout.Sequence.Invalidate();
                 m_invalidated = false;
-                Owner.Owner.Owner.OnKeyframeChanged();
+                OwnerLayout.ParentAttributes.Owner.OnKeyframeChanged();
             }
         }
 
         private void Invalidate()
         {
+            if (!m_invalidated)
+            {
+                _ = OwnerLayout.ParentAttributes.Owner.RecordUndoEvent("Change Keyframe");
+            }
             m_invalidated = true;
-            Layout(Owner.Bounds);
+            Layout(OwnerLayout.TimelineBounds);
             Instances.ActiveCanvas.Invalidate();
         }
 
@@ -61,9 +64,21 @@ namespace Plugin
             }
 
             bool selected = m_menuOpen || m_isDragging;
+            bool error = OwnerLayout.Sequence.IsValidWhyNot != null;
 
-            Color fill = selected ? GH_Skin.palette_white_selected.Fill : Color.White;
-            Color stroke = selected ? GH_Skin.palette_white_selected.Edge : Color.Black;
+            Color fill = Color.White;
+            Color stroke = Color.Black;
+
+            GH_PaletteStyle palette =
+                selected ? (error ? GH_Skin.palette_error_selected : GH_Skin.palette_white_selected) :
+                error ? GH_Skin.palette_error_standard : null;
+
+            if (palette != null)
+            {
+                fill = palette.Fill;
+                stroke = palette.Edge;
+            }
+
             using (SolidBrush brush = new SolidBrush(fill))
             {
                 using (Pen pen = new Pen(stroke))
@@ -91,11 +106,11 @@ namespace Plugin
                         path.AddArc(x - radius, y - radius, radius * 2, radius * 2, 90, 180);
                         break;
                     case Easing.Cubic:
-                        path.AddLine(x, y + radius, x - radius / 2, y + radius);
+                        path.AddLine(x, y + radius, x - (radius / 2), y + radius);
                         path.AddArc(x - radius, y, radius, radius, 90, 90);
-                        path.AddLine(x - radius, y + radius / 2, x - radius, y + radius / 2);
+                        path.AddLine(x - radius, y + (radius / 2), x - radius, y + (radius / 2));
                         path.AddArc(x - radius, y - radius, radius, radius, 180, 90);
-                        path.AddLine(x - radius / 2, y - radius, x, y - radius);
+                        path.AddLine(x - (radius / 2), y - radius, x, y - radius);
                         break;
                     case Easing.None:
                     default:
@@ -103,7 +118,7 @@ namespace Plugin
                         {
                             new PointF(x, y+radius),
                             new PointF(x-radius,y+radius),
-                            new PointF(x-radius/2,y),
+                            new PointF(x-(radius/2),y),
                             new PointF(x-radius,y-radius),
                             new PointF(x,y-radius),
                         });
@@ -130,7 +145,7 @@ namespace Plugin
                         path.AddLines(new PointF[]
                         {
                             new PointF(x+radius,y-radius),
-                            new PointF(x+radius/2,y),
+                            new PointF(x+(radius/2),y),
                             new PointF(x+radius,y+radius)
                         });
                         break;
@@ -156,7 +171,7 @@ namespace Plugin
 
             _ = menu.Items.Add(new ToolStripMenuItem()
             {
-                Text = Owner.Sequence.Name,
+                Text = OwnerLayout.Sequence.Name,
                 Enabled = false,
             });
 
@@ -171,9 +186,10 @@ namespace Plugin
             };
             upDown.ValueChanged += (obj, arg) =>
             {
+                Invalidate();
                 Keyframe.Time = (double)upDown.Value;
-                Layout(Owner.Bounds);
-                Owner.Owner.Owner.OnKeyframeChanged();
+                Layout(OwnerLayout.TimelineBounds);
+                OwnerLayout.ParentAttributes.Owner.OnKeyframeChanged();
                 Instances.ActiveCanvas.Invalidate();
             };
 
@@ -189,11 +205,11 @@ namespace Plugin
             };
             AppendEnumItems(easeInDropDown.DropDown, Keyframe.EaseIn, res =>
             {
-                Keyframe.EaseIn = res;
                 Invalidate();
+                Keyframe.EaseIn = res;
                 ApplyChanges();
             });
-            menu.Items.Add(easeInDropDown);
+            _ = menu.Items.Add(easeInDropDown);
 
             ToolStripDropDownButton easeOutDropDown = new ToolStripDropDownButton()
             {
@@ -201,20 +217,27 @@ namespace Plugin
             };
             AppendEnumItems(easeOutDropDown.DropDown, Keyframe.EaseOut, res =>
             {
-                Keyframe.EaseOut = res;
                 Invalidate();
+                Keyframe.EaseOut = res;
                 ApplyChanges();
             });
 
-            menu.Items.Add(easeOutDropDown);
+            _ = menu.Items.Add(easeOutDropDown);
 
             _ = GH_DocumentObject.Menu_AppendSeparator(menu);
 
             _ = menu.Items.Add(new ToolStripMenuItem("Delete", null, (obj, arg) =>
             {
-                _ = Owner.Sequence.Remove(Keyframe);
-                Invalidate();
-                ApplyChanges();
+                _ = OwnerLayout.ParentAttributes.Owner.RecordUndoEvent("Delete Keyframe");
+
+                _ = OwnerLayout.Sequence.Remove(Keyframe);
+
+                if (OwnerLayout.Sequence.KeyframeCount == 0)
+                {
+                    _ = OwnerLayout.ParentAttributes.Owner.Timeline.RemoveSequence(OwnerLayout.Sequence);
+                }
+
+                OwnerLayout.ParentAttributes.Owner.OnKeyframeChanged();
                 menu.Close();
             }));
         }
@@ -247,7 +270,7 @@ namespace Plugin
 
             else if (e.Button == MouseButtons.Right)
             {
-                Owner.Owner.Selected = false;
+                OwnerLayout.ParentAttributes.Selected = false;
                 ContextMenuStrip menu = new ContextMenuStrip();
                 AppendMenuItems(menu);
                 menu.Show(Instances.ActiveCanvas, new Point(e.ControlLocation.X, e.ControlLocation.Y + 10));
@@ -287,22 +310,23 @@ namespace Plugin
                 case MouseButtons.Left:
                     if (m_isDragging)
                     {
-                        if ((m_mousePosition.X < Owner.Owner.ContentGraphicsBounds.Left && Keyframe.Time <= 0) ||
-                                    (m_mousePosition.X > Owner.Owner.ContentGraphicsBounds.Right && Keyframe.Time >= 1))
+                        // Ignore drag outside of X bounds
+                        if ((m_mousePosition.X < OwnerLayout.ParentAttributes.ContentGraphicsBounds.Left && Keyframe.Time <= 0) ||
+                                    (m_mousePosition.X > OwnerLayout.ParentAttributes.ContentGraphicsBounds.Right && Keyframe.Time >= 1))
                         {
                             return GH_ObjectResponse.Handled;
                         }
 
-                        double time = Math.Min(1, Math.Max(0, (double)Keyframe.Time + m_mouseDelta.X / Owner.Owner.ContentBounds.Width));
+                        double time = Math.Min(1, Math.Max(0, (double)Keyframe.Time + (m_mouseDelta.X / OwnerLayout.ParentAttributes.ContentBounds.Width)));
 
                         // Snap to keyframes on other sequences
-                        if (Owner.Owner.TryGetKeyframe(e.CanvasLocation, out KeyframeLayout kf) && kf.Owner != Owner)
+                        if (OwnerLayout.ParentAttributes.TryGetKeyframe(e.CanvasLocation, out KeyframeLayout kf) && kf.OwnerLayout != OwnerLayout)
                         {
                             time = kf.Keyframe.Time;
                         }
 
-                        Keyframe.Time = time;
                         Invalidate();
+                        Keyframe.Time = time;
 
                         return GH_ObjectResponse.Handled;
                     }
