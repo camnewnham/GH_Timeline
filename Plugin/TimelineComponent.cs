@@ -11,12 +11,13 @@ namespace Plugin
 {
     public class TimelineComponent : GH_NumberSlider, IGH_InstanceGuidDependent
     {
+        /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("84e977ef-b06d-41e3-aa6d-c6f0f646cef3");
+        /// <inheritdoc/>
         protected override System.Drawing.Bitmap Icon => null;
+        /// <inheritdoc/>
         public override GH_ParamKind Kind => GH_ParamKind.floating;
-
-        private bool m_hasDeserialized = false;
-
+        /// <inheritdoc/>
         public override string InstanceDescription => $"Timeline\n{Timeline.SequenceCount} Sequences\n{Timeline.KeyframeCount} Keyframes";
 
         public Timeline Timeline;
@@ -29,15 +30,29 @@ namespace Plugin
             Timeline = new Timeline();
         }
 
+        /// <inheritdoc/>
         public override string Name => "Timeline";
+        /// <inheritdoc/>
         public override string Description => "Displays keyframes for animating your definition.";
+        /// <inheritdoc/>
         public override string Category => "Display";
+        /// <inheritdoc/>
         public override string SubCategory => "Timeline";
 
+        /// <summary>
+        /// If false, this <see cref="Read(GH_IReader)"/> has not been called on this component. 
+        /// This signifies that it is a "new" component rather than one loaded from file, paste, or redo.
+        /// </summary>
+        private bool m_hasDeserialized = false;
         /// <summary>
         /// During recording to disk, this stores the viewport that is being recorded.
         /// </summary>
         private Rhino.Display.RhinoViewport m_recordAnimationViewport;
+
+        /// <summary>
+        /// Bitrate to use with ffmpeg when video is 1920x1080 (x1000). Other dimensions are multiplied accordingly.
+        /// </summary>
+        public static int Bitrate1920x1080 = 16384;
 
         public override void CreateAttributes()
         {
@@ -47,7 +62,6 @@ namespace Plugin
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
             _ = Menu_AppendSeparator(menu);
-
 
             if (!AnimateCamera)
             {
@@ -66,7 +80,6 @@ namespace Plugin
                 Instances.ActiveCanvas.Invalidate();
             }, true, Recording);
 
-
             _ = Menu_AppendItem(menu, "Export Animation...", (obj, arg) =>
             {
                 Recording = false;
@@ -75,8 +88,27 @@ namespace Plugin
                 {
                     Recording = false;
                     m_recordAnimationViewport = gH_SliderAnimator.Viewport;
-                    _ = gH_SliderAnimator.StartAnimation();
+                    int recordedFrameCount = gH_SliderAnimator.StartAnimation();
                     m_recordAnimationViewport = null;
+
+                    int targetFrameCount = Instances.Settings.GetValue("SlAnim:FrameCount", int.MinValue) + 1;
+                    string targetFolder = Instances.Settings.GetValue("SlAnim:Folder", "");
+                    string targetTemplate = Instances.Settings.GetValue("SlAnim:FileTemplate", "");
+
+                    int width = Instances.Settings.GetValue("SlAnim:Width", 640);
+                    int height = Instances.Settings.GetValue("SlAnim:Height", 480);
+
+                    if (recordedFrameCount == targetFrameCount)
+                    {
+                        string videoPath = FFmpegUtil.Compile(targetFolder, targetTemplate, targetFrameCount, 30, (int)(Math.Sqrt(width * height) / Math.Sqrt(1920 * 1080) * Bitrate1920x1080));
+                        if (videoPath != null)
+                        {
+                            _ = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(videoPath)
+                            {
+                                UseShellExecute = true
+                            });
+                        }
+                    }
                 }
             });
         }
@@ -175,7 +207,9 @@ namespace Plugin
             {
                 if (Timeline.TryGetSequence(kvp.Key, out Sequence found) && found is ComponentSequence cseq)
                 {
+                    _ = Timeline.RemoveSequence(kvp.Key);
                     cseq.InstanceGuid = kvp.Value;
+                    Timeline.AddSequence(kvp.Value, cseq);
                 }
             }
         }

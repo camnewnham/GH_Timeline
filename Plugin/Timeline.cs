@@ -124,5 +124,10 @@ namespace Plugin
                 }
             }
         }
+
+        internal void AddSequence(Guid value, ComponentSequence cseq)
+        {
+            Sequences.Add(value, cseq);
+        }
     }
 }
