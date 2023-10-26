@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,12 +19,12 @@ namespace Plugin
         public const string DOWNLOAD_URL_WINDOWS = "https://github.com/GyanD/codexffmpeg/releases/download/6.0/ffmpeg-6.0-essentials_build.zip";
         public const string DOWNLOAD_URL_OSX = "https://evermeet.cx/ffmpeg/getrelease/zip";
 
-        public static bool IsWindows => !IsOSX;
-        public static bool IsOSX => Environment.OSVersion.Platform == PlatformID.MacOSX;
+        public static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+        public static bool IsOSX => RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
         public static string DownloadURL => IsWindows ? DOWNLOAD_URL_WINDOWS : DOWNLOAD_URL_OSX;
         private static string InstallFolder => Path.Combine(PluginInfo.WorkingFolder, "ffmpeg");
         private static string DownloadFileName => Path.Combine(PluginInfo.WorkingFolder, "ffmpeg-installer.zip");
-        public static string ExecutablePath => IsWindows ? Path.Combine(InstallFolder, "ffmpeg-6.0-essentials_build", "bin", "ffmpeg.exe") : Path.Combine("InstallFolder", "ffmpeg");
+        public static string ExecutablePath => IsWindows ? Path.Combine(InstallFolder, "ffmpeg-6.0-essentials_build", "bin", "ffmpeg.exe") : Path.Combine(InstallFolder, "ffmpeg");
         public static bool IsInstalled => File.Exists(ExecutablePath);
 
         public static bool Install()
@@ -142,6 +143,17 @@ namespace Plugin
                     return false;
                 }
 
+                if (IsOSX)
+                {
+                    Process.Start(new ProcessStartInfo()
+                    {
+                        FileName="/bin/zsh",
+                        Arguments=$"-c \"chmod 755 \'{ExecutablePath}\' \"",
+                        UseShellExecute=false,
+                        CreateNoWindow=true
+                    }).WaitForExit();
+                }
+
                 return true;
 
             }
@@ -195,7 +207,7 @@ namespace Plugin
                 Process proc = new Process();
                 proc.StartInfo.FileName = ExecutablePath;
                 proc.StartInfo.WorkingDirectory = folder;
-                proc.StartInfo.Arguments = $"-f concat -r {framerate} -i \"{concatFileName}\" -b:v {bitrate}k \"{outputFileName}\"";
+                proc.StartInfo.Arguments = $"-f concat -r {framerate} -i \"{concatFileName}\" -vcodec libx264 -pix_fmt yuv420p -b:v {bitrate}k \"{outputFileName}\"";
                 proc.StartInfo.UseShellExecute = false;
                 proc.StartInfo.CreateNoWindow = true;
 #if DEBUG

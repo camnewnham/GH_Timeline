@@ -6,6 +6,8 @@
     <Title>Plugin</Title>
     <Description>Description of Plugin</Description>
     <TargetExt>.gha</TargetExt>
+    <RhinoPluginType>grasshopper</RhinoPluginType>
+    <RhinoMacLauncher>/Applications/Rhino 7.app</RhinoMacLauncher>
   </PropertyGroup>
   
   <ItemGroup>
