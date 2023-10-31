@@ -5,12 +5,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Plugin
+namespace GH_Timeline
 {
+    /// <summary>
+    /// Base class for a sequence of keyframes.
+    /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
     public abstract class Sequence
     {
-        [JsonProperty]
+        [JsonProperty("keyframes")]
         private readonly HashSet<Keyframe> keyframes = new HashSet<Keyframe>();
         public abstract string Name { get; }
         public abstract float Sort { get; }
@@ -68,6 +71,11 @@ namespace Plugin
         public abstract bool SetTime(double time, GH_Document doc, RhinoViewport viewport);
     }
 
+    /// <summary>
+    /// A sequence of keyframes that stores camera states.  
+    /// Used to control the Rhino viewport.
+    /// Typically only one exists per timeline with the guid <see cref="Timeline.MainCameraSequenceId"/>
+    /// </summary>
     public class CameraSequence : Sequence
     {
         public override float Sort => -10000;
@@ -95,10 +103,13 @@ namespace Plugin
         }
     }
 
+    /// <summary>
+    /// A sequence of keyframes that stores component keyframes
+    /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
     public class ComponentSequence : Sequence
     {
-        [JsonProperty]
+        [JsonProperty("id")]
         private Guid m_instanceGuid;
 
         public override string IsValidWhyNot => TryGetDocumentObject(out _) ? null : $"Component not found with InstanceGuid {m_instanceGuid}";

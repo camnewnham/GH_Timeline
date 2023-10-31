@@ -3,17 +3,19 @@ using Grasshopper.Kernel.Special;
 using Newtonsoft.Json;
 using Rhino.Display;
 
-namespace Plugin
+namespace GH_Timeline
 {
-
+    /// <summary>
+    /// Base keyframe class.  Contains time and easing information.
+    /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
     public abstract class Keyframe
     {
-        [JsonProperty]
+        [JsonProperty("ease_in")]
         public Easing EaseIn { get; set; } = Easing.Linear;
-        [JsonProperty]
+        [JsonProperty("ease_out")]
         public Easing EaseOut { get; set; } = Easing.Linear;
-        [JsonProperty]
+        [JsonProperty("time")]
         public double Time { get; set; }
 
         public Keyframe(double time)
@@ -22,6 +24,9 @@ namespace Plugin
         }
     }
 
+    /// <summary>
+    /// A keyframe that is related to a specific IGH_DocumentObject
+    /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
     public abstract class ComponentKeyframe : Keyframe
     {
@@ -34,10 +39,13 @@ namespace Plugin
         public abstract int SaveState(IGH_DocumentObject obj);
     }
 
+    /// <summary>
+    /// A keyframe that stores a camera state
+    /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
     public class CameraKeyframe : Keyframe
     {
-        [JsonProperty]
+        [JsonProperty("state")]
         private CameraState m_state;
         public CameraKeyframe(double time) : base(time) { }
 
@@ -69,10 +77,13 @@ namespace Plugin
         }
     }
 
+    /// <summary>
+    /// A component keyframe for objects that implement <see cref="IGH_StateAwareObject"/>
+    /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
     public class StateAwareKeyframe : ComponentKeyframe
     {
-        [JsonProperty]
+        [JsonProperty("state")]
         private string m_state;
 
         public StateAwareKeyframe(double time) : base(time)
@@ -92,10 +103,13 @@ namespace Plugin
         }
     }
 
+    /// <summary>
+    /// A component keyframe for number sliders, permitting interpolation.
+    /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
     public class NumberSliderKeyframe : ComponentKeyframe
     {
-        [JsonProperty]
+        [JsonProperty("state")]
         private double m_state;
 
         public NumberSliderKeyframe(double time) : base(time) { }

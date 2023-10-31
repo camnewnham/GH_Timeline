@@ -7,14 +7,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
 
-namespace Plugin
+namespace GH_Timeline
 {
     public class TimelineComponent : GH_NumberSlider, IGH_InstanceGuidDependent
     {
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("84e977ef-b06d-41e3-aa6d-c6f0f646cef3");
         /// <inheritdoc/>
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.logo_24;
         /// <inheritdoc/>
         public override GH_ParamKind Kind => GH_ParamKind.floating;
         /// <inheritdoc/>

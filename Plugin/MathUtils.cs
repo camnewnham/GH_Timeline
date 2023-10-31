@@ -3,7 +3,7 @@ using Grasshopper.Kernel.Special;
 using Rhino.Geometry;
 using System;
 
-namespace Plugin
+namespace GH_Timeline
 {
     public enum Easing : int
     {

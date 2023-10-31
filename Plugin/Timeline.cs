@@ -1,16 +1,19 @@
 ﻿using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
+using Newtonsoft.Json;
 using Rhino.Display;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Plugin
+namespace GH_Timeline
 {
+    [JsonObject(MemberSerialization.OptIn)]
     public class Timeline
     {
         internal static Guid MainCameraSequenceId => new Guid("{4B74BBB9-1713-4206-9124-68FD901FA036}");
 
+        [JsonProperty("sequences")]
         public Dictionary<Guid, Sequence> Sequences { get; private set; } = new Dictionary<Guid, Sequence>();
 
         public int SequenceCount => Sequences.Count;

@@ -12,7 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace Plugin
+namespace GH_Timeline
 {
     internal static class FFmpegUtil
     {
@@ -147,10 +147,10 @@ namespace Plugin
                 {
                     Process.Start(new ProcessStartInfo()
                     {
-                        FileName="/bin/zsh",
-                        Arguments=$"-c \"chmod 755 \'{ExecutablePath}\' \"",
-                        UseShellExecute=false,
-                        CreateNoWindow=true
+                        FileName = "/bin/zsh",
+                        Arguments = $"-c \"chmod 755 \'{ExecutablePath}\' \"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
                     }).WaitForExit();
                 }
 

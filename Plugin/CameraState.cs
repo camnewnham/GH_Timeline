@@ -2,7 +2,7 @@
 using Rhino.Geometry;
 using System;
 
-namespace Plugin
+namespace GH_Timeline
 {
     public struct CameraState : IEquatable<CameraState>
     {

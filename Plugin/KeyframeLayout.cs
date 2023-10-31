@@ -9,8 +9,11 @@ using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
 
-namespace Plugin
+namespace GH_Timeline
 {
+    /// <summary>
+    /// GUI for viewing and editing a keyframe.
+    /// </summary>
     internal class KeyframeLayout : InputHandler
     {
         public Keyframe Keyframe;

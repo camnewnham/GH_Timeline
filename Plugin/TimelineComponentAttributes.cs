@@ -10,7 +10,7 @@ using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
 
-namespace Plugin
+namespace GH_Timeline
 {
     public class TimelineComponentAttributes : GH_ResizableAttributes<TimelineComponent>
     {

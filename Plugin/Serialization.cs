@@ -2,8 +2,12 @@
 using Newtonsoft.Json.Serialization;
 using System;
 
-namespace Plugin
+namespace GH_Timeline
 {
+    /// <summary>
+    /// Utility class to serialize and deserialize timelines.  
+    /// Includes "$type"="ClassName" to allow deserialization of abstract classes.
+    /// </summary>
     public static class Serialization
     {
         private static JsonSerializerSettings SerializationSettings => new JsonSerializerSettings()
@@ -30,7 +34,7 @@ namespace Plugin
         {
             public Type BindToType(string assemblyName, string typeName)
             {
-                return Type.GetType(nameof(Plugin) + "." + typeName);
+                return Type.GetType(nameof(GH_Timeline) + "." + typeName);
             }
 
             public void BindToName(Type serializedType, out string assemblyName, out string typeName)

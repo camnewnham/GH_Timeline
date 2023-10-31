@@ -4,11 +4,12 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 
-namespace Plugin
+namespace GH_Timeline
 {
     /// <summary>
     /// Utility for forwarding mouse events to <see cref="InputForwarder"/>.  
-    /// Specify <see cref="InputHandlers"/>, then forward events from <see cref="IGH_ResponsiveObject"/> to this.
+    /// Used to pass and capture mouse events from component > sequence > keyframe.
+    /// Usage: Specify <see cref="InputHandlers"/>, then forward events from <see cref="IGH_ResponsiveObject"/> to this.
     /// </summary>
     public class InputForwarder
     {

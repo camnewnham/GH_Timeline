@@ -6,9 +6,11 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace Plugin
+namespace GH_Timeline
 {
-
+    /// <summary>
+    /// GUI for editing a sequence and laying out keyframes.
+    /// </summary>
     internal class SequenceLayout : InputHandler
     {
         public TimelineComponentAttributes ParentAttributes;

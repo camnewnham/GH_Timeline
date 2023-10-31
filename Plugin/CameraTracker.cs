@@ -2,7 +2,7 @@
 using System;
 using System.Drawing;
 
-namespace Plugin
+namespace GH_Timeline
 {
     public class CameraTracker : DisplayConduit, IDisposable
     {

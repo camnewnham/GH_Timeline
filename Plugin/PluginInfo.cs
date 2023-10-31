@@ -3,7 +3,7 @@ using System;
 using System.Drawing;
 using System.IO;
 
-namespace Plugin
+namespace GH_Timeline
 {
     public class PluginInfo : GH_AssemblyInfo
     {
@@ -11,11 +11,11 @@ namespace Plugin
         /// Working folder for caching things.
         /// </summary>
         public static string WorkingFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TimelineForGrasshopper");
-        public override string Name => "Plugin";
-        public override Bitmap Icon => null;
-        public override string Description => "";
+        public override string Name => "Timeline";
+        public override Bitmap Icon => Properties.Resources.logo_24;
+        public override string Description => "Simple keyframe sequencer for Grasshopper";
         public override Guid Id => new Guid("bc2a4860-5fd1-4339-a14b-8188b81b8547");
-        public override string AuthorName => "";
-        public override string AuthorContact => "";
+        public override string AuthorName => "Cameron Newnham";
+        public override string AuthorContact => "https://github.com/camnewnham/GH_Timeline";
     }
 }
