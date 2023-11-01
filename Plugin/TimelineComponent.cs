@@ -18,7 +18,7 @@ namespace GH_Timeline
         /// <inheritdoc/>
         public override GH_ParamKind Kind => GH_ParamKind.floating;
         /// <inheritdoc/>
-        public override string InstanceDescription => $"Timeline\n{Timeline.SequenceCount} Sequences\n{Timeline.KeyframeCount} Keyframes";
+        public override string InstanceDescription => $"Timeline ({(CurrentValue * 100).ToString("00.0")})\n{Timeline.SequenceCount} Sequences\n{Timeline.KeyframeCount} Keyframes";
 
         public Timeline Timeline;
         public TimelineComponent() : base()
@@ -233,11 +233,13 @@ namespace GH_Timeline
                 {
                     if (value)
                     {
+                        RecordUndoEvent("Add camera sequence");
                         _ = Timeline.EnsureSequence(Timeline.MainCameraSequenceId, () => new CameraSequence());
                         Attributes.ExpireLayout();
                     }
                     else
                     {
+                        RecordUndoEvent("Remove camera sequence");
                         _ = Timeline.RemoveSequence(Timeline.MainCameraSequenceId);
                         Attributes.ExpireLayout();
                     }
