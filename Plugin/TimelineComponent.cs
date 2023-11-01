@@ -120,6 +120,7 @@ namespace GH_Timeline
             base.AddedToDocument(document);
             document.SolutionEnd += OnSolutionEndRecordState;
             document.SolutionStart += OnSolutionStartRecordState;
+            document.ObjectsAdded += OnDocumentObjectsAdded;
             document.ObjectsDeleted += OnDocumentObjectsDeleted;
 
             if (!m_hasDeserialized)
@@ -131,6 +132,13 @@ namespace GH_Timeline
             m_cameraTracker.OnCameraStateChanged += OnCameraStateChange;
 
             Timeline.AddedToDocument(document);
+        }
+
+        private void OnDocumentObjectsAdded(object sender, GH_DocObjectEventArgs e)
+        {
+            // In case of Undo, an object we are missing might have been re-added.
+            ClearRuntimeMessages();
+            ValidateComponents();
         }
 
         private void OnCameraStateChange(CameraState obj)
@@ -166,6 +174,7 @@ namespace GH_Timeline
             Recording = false;
             document.SolutionEnd -= OnSolutionEndRecordState;
             document.SolutionStart -= OnSolutionStartRecordState;
+            document.ObjectsAdded -= OnDocumentObjectsAdded;
             document.ObjectsDeleted -= OnDocumentObjectsDeleted;
             base.RemovedFromDocument(document);
         }
@@ -319,7 +328,11 @@ namespace GH_Timeline
         protected override void OnVolatileDataCollected()
         {
             base.OnVolatileDataCollected();
+            ValidateComponents();
+        }
 
+        private void ValidateComponents()
+        {
             foreach (Sequence seq in Timeline.Sequences.Values)
             {
                 if (seq.IsValidWhyNot is string reason)

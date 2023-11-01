@@ -8,6 +8,7 @@
     <TargetExt>.gha</TargetExt>
     <RhinoPluginType>grasshopper</RhinoPluginType>
     <RhinoMacLauncher>/Applications/Rhino 7.app</RhinoMacLauncher>
+    <RootNamespace>GH_Timeline</RootNamespace>
   </PropertyGroup>
   
   <ItemGroup>
