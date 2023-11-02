@@ -28,7 +28,7 @@ jobs:
         ..\..\..\yak build --version ${{ github.ref_name }}
         ..\..\..\yak push (dir *.yak).Name
       env:
-        YAK_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        YAK_TOKEN: ${{ secrets.YAK_TOKEN }}
 
     - name: Create a Release
       uses: elgohr/Github-Release-Action@v5
