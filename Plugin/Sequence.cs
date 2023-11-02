@@ -76,6 +76,7 @@ namespace GH_Timeline
     /// Used to control the Rhino viewport.
     /// Typically only one exists per timeline with the guid <see cref="Timeline.MainCameraSequenceId"/>
     /// </summary>
+    [JsonObject(MemberSerialization.OptIn)]
     public class CameraSequence : Sequence
     {
         public override float Sort => -10000;

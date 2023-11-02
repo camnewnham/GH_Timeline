@@ -255,7 +255,7 @@ namespace GH_Timeline
             set
             {
                 m_recording = value;
-                Rhino.RhinoDoc.ActiveDoc.Views.Redraw();
+                Rhino.RhinoDoc.ActiveDoc?.Views.Redraw();
             }
         }
 
