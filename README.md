@@ -34,7 +34,7 @@
 
 ## Supported Components
 
-|               |      |
+|       Component        |  Status    |
 | ------------- | ---- |
 | Main Camera   | ✔️   |
 | Number Slider | ✔️   |
@@ -51,10 +51,10 @@
 | Calendar      | ❌   |
 | Clock         | ❌   |
 
-\* Interpolation not supported via `IGH_StateAwareObject`
-
-### Contributing
+\* Tweening not supported. Implemented via `IGH_StateAwareObject`
 
 If you'd like to see one of these components added or updated to support interpolation, please create an issue.
 
-If you'd like to implement something, please fork and create a pull request. For ideas, see the [projects page](https://github.com/users/camnewnham/projects/2).
+### Contributing
+
+If you'd like to implement something, please fork and create a pull request, or create an issue to discuss. For ideas, see the [projects page](https://github.com/users/camnewnham/projects/2).
