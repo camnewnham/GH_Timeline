@@ -1,0 +1,9 @@
+---
+name: Timeline
+version: <version>
+authors:
+- Cameron Newnham
+description: Simple keyframe animation sequences for Grasshopper
+url: https://github.com/camnewnham/GH_Timeline
+keywords: [timeline, keyframe, animation, video, record, animate, sequencer]
+icon: /logo.png

@@ -3,17 +3,28 @@
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
     <Version>1.0</Version>
-    <Title>Plugin</Title>
-    <Description>Description of Plugin</Description>
+    <Title>Timeline</Title>
+    <Description>Timeline component for Grasshopper</Description>
     <TargetExt>.gha</TargetExt>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <RhinoPluginType>grasshopper</RhinoPluginType>
     <RhinoMacLauncher>/Applications/Rhino 7.app</RhinoMacLauncher>
     <RootNamespace>GH_Timeline</RootNamespace>
+    <PackageOutputPath>$(OutputPath)</PackageOutputPath>
+    <AssemblyName>Timeline</AssemblyName>
+  </PropertyGroup>
+	
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+	
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DebugType>none</DebugType>
   </PropertyGroup>
   
   <ItemGroup>
     <PackageReference Include="Grasshopper" Version="6.35.21222.17001" IncludeAssets="compile;build" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" IncludeAssets="compile;build" />
   </ItemGroup>
   
   <ItemGroup>
@@ -33,6 +44,15 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <None Update="manifest.yml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
