@@ -1,0 +1,38 @@
+name: Yak Release
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+      - '*.*.*-pre'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Add msbuild to PATH
+      uses: microsoft/setup-msbuild@v1.1
+      
+    - name: Build
+      run: msbuild /restore /p:Configuration=Release /p:Version=${{ github.ref_name }}
+      
+    - name: Download Yak
+      run:  curl https://files.mcneel.com/yak/tools/latest/yak.exe -o yak.exe
+      
+    - name: Yak Build
+      working-directory: ./Plugin/bin/Release
+      run: |
+        ..\..\yak build --version ${{ github.ref_name }}
+        ..\..\yak push (dir *.yak).Name
+      env:
+        YAK_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+    - name: Create a Release
+      uses: elgohr/Github-Release-Action@v5
+      env:
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      with:
+        title: ${{ github.ref_name }}
