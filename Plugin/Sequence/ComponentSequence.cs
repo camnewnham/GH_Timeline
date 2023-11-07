@@ -8,103 +8,6 @@ using System.Linq;
 namespace GH_Timeline
 {
     /// <summary>
-    /// Base class for a sequence of keyframes.
-    /// </summary>
-    [JsonObject(MemberSerialization.OptIn)]
-    public abstract class Sequence
-    {
-        [JsonProperty("keyframes")]
-        private readonly HashSet<Keyframe> keyframes = new HashSet<Keyframe>();
-        public abstract string Name { get; }
-        public abstract float Sort { get; }
-        public virtual string IsValidWhyNot => null;
-
-
-        public int KeyframeCount => keyframes.Count;
-
-        private List<Keyframe> orderedKeyframes;
-
-        public IEnumerable<Keyframe> Keyframes => keyframes;
-
-        public List<Keyframe> OrderedKeyframes
-        {
-            get
-            {
-                if (orderedKeyframes == null)
-                {
-                    orderedKeyframes = keyframes.OrderBy(x => x.Time).ToList();
-                }
-                return orderedKeyframes;
-            }
-        }
-
-        public bool IsEmpty => keyframes.Count == 0;
-
-        public void AddKeyframe(Keyframe keyframe)
-        {
-            orderedKeyframes = null;
-            _ = keyframes.RemoveWhere(x => x.Time == keyframe.Time);
-            _ = keyframes.Add(keyframe);
-        }
-
-        public bool Remove(Keyframe keyframe)
-        {
-            orderedKeyframes = null;
-            return keyframes.Remove(keyframe);
-        }
-
-        public bool Remove(double keyframeTime)
-        {
-            orderedKeyframes = null;
-            return keyframes.RemoveWhere(x => x.Time == keyframeTime) > 0;
-        }
-
-        /// <summary>
-        /// Called when a keyframe changes that could influence how this component applies itself. 
-        /// Typically called when a keyframe changes but is not added or removed.
-        /// </summary>
-        public void Invalidate()
-        {
-            orderedKeyframes = null;
-        }
-
-        public abstract bool SetTime(double time, GH_Document doc, RhinoViewport viewport);
-    }
-
-    /// <summary>
-    /// A sequence of keyframes that stores camera states.  
-    /// Used to control the Rhino viewport.
-    /// Typically only one exists per timeline with the guid <see cref="Timeline.MainCameraSequenceId"/>
-    /// </summary>
-    [JsonObject(MemberSerialization.OptIn)]
-    public class CameraSequence : Sequence
-    {
-        public override float Sort => -10000;
-        public override string Name => "Camera";
-
-        public override bool SetTime(double time, GH_Document doc, RhinoViewport viewport)
-        {
-            for (int i = 0; i < OrderedKeyframes.Count; i++)
-            {
-                CameraKeyframe current = OrderedKeyframes[i] as CameraKeyframe;
-                CameraKeyframe next = i < OrderedKeyframes.Count - 1 ? OrderedKeyframes[i + 1] as CameraKeyframe : null;
-
-                if (next == null // Past last frame or only one keyframe
-                    || (i == 0 && current.Time >= time))   // On or before first frame
-                {
-                    return current.LoadState(viewport);
-                }
-                else if (time >= current.Time && time < next.Time) // Between this frame and next 
-                {
-                    double fraction = MathUtils.Remap(time, current.Time, next.Time, 0, 1);
-                    return current.InterpolateState(viewport, next, fraction);
-                }
-            }
-            return false;
-        }
-    }
-
-    /// <summary>
     /// A sequence of keyframes that stores component keyframes
     /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
@@ -113,11 +16,17 @@ namespace GH_Timeline
         [JsonProperty("id")]
         private Guid m_instanceGuid;
 
+        /// <inheritdoc/>
         public override string IsValidWhyNot => TryGetDocumentObject(out _) ? null : $"Component not found with InstanceGuid {m_instanceGuid}";
 
+        /// <inheritdoc/>
         public override float Sort => (m_ghObject?.Attributes.Pivot.Y ?? 0) + 10000;
 
         private GH_Document m_document;
+
+        /// <summary>
+        /// Gets the current document. When set, attempt to find the component matching <see cref="m_instanceGuid"/> to assign <see cref="DocumentObject"/>
+        /// </summary>
         public GH_Document Document
         {
             get => m_document;
@@ -131,9 +40,17 @@ namespace GH_Timeline
             }
         }
 
+        /// <summary>
+        /// Gets the document object corresponding to this sequence. Throws an exception if not found.
+        /// </summary>
         public IGH_DocumentObject DocumentObject => TryGetDocumentObject(out IGH_DocumentObject found)
                     ? found : throw new KeyNotFoundException($"Unable to find document object ({InstanceGuid})");
 
+        /// <summary>
+        /// Attempts to retrieve the document object corresponding to this sequence
+        /// </summary>
+        /// <param name="obj">The object</param>
+        /// <returns>True if the object was found</returns>
         public bool TryGetDocumentObject(out IGH_DocumentObject obj)
         {
             if (m_ghObject != null)
@@ -145,7 +62,9 @@ namespace GH_Timeline
             return obj != null;
         }
 
+        /// <inheritdoc/>
         public override string Name => m_ghObject?.GetName() ?? "Missing";
+
         /// <summary>
         /// Hashset of the last state. The component corresponding to this sequence will
         /// only be expired if the hashcode changes.
@@ -154,6 +73,9 @@ namespace GH_Timeline
 
         private IGH_DocumentObject m_ghObject;
 
+        /// <summary>
+        /// Gets or sets the instance GUID of the component corresponding to this sequence
+        /// </summary>
         public Guid InstanceGuid
         {
             get => m_instanceGuid;
@@ -188,11 +110,13 @@ namespace GH_Timeline
                 return false;
             }
 
+            List<Keyframe> kfs = Keyframes.ToList();
+
             int oldHash = m_lastStateHashCode;
-            for (int i = 0; i < OrderedKeyframes.Count; i++)
+            for (int i = 0; i < kfs.Count; i++)
             {
-                ComponentKeyframe current = OrderedKeyframes[i] as ComponentKeyframe;
-                ComponentKeyframe next = i < OrderedKeyframes.Count - 1 ? OrderedKeyframes[i + 1] as ComponentKeyframe : null;
+                ComponentKeyframe current = kfs[i] as ComponentKeyframe;
+                ComponentKeyframe next = i < kfs.Count - 1 ? kfs[i + 1] as ComponentKeyframe : null;
 
                 if (next == null // Past last frame or only one keyframe
                     || (i == 0 && current.Time >= time))   // On or before first frame

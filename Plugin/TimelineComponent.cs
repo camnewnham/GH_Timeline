@@ -9,6 +9,9 @@ using System.Windows.Forms;
 
 namespace GH_Timeline
 {
+    /// <summary>
+    /// Primary component class. Inherits some utility from <see cref="GH_NumberSlider"/>
+    /// </summary>
     public class TimelineComponent : GH_NumberSlider, IGH_InstanceGuidDependent
     {
         /// <inheritdoc/>
@@ -54,11 +57,13 @@ namespace GH_Timeline
         /// </summary>
         public static int Bitrate1920x1080 = 16384;
 
+        /// <inheritdoc />
         public override void CreateAttributes()
         {
             Attributes = new TimelineComponentAttributes(this);
         }
 
+        /// <inheritdoc />
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
             _ = Menu_AppendSeparator(menu);
@@ -113,8 +118,13 @@ namespace GH_Timeline
             });
         }
 
+        /// <summary>
+        /// Display conduit to respond to camera changes and render recording notifications
+        /// </summary>
         private CameraTracker m_cameraTracker;
 
+
+        /// <inheritdoc />
         public override void AddedToDocument(GH_Document document)
         {
             base.AddedToDocument(document);
@@ -134,6 +144,9 @@ namespace GH_Timeline
             Timeline.AddedToDocument(document);
         }
 
+        /// <summary>
+        /// Called when objects are added to the document. Used to ensure sequences are correctly linked to components.
+        /// </summary>
         private void OnDocumentObjectsAdded(object sender, GH_DocObjectEventArgs e)
         {
             // In case of Undo, an object we are missing might have been re-added.
@@ -141,7 +154,12 @@ namespace GH_Timeline
             ValidateComponents();
         }
 
-        private void OnCameraStateChange(CameraState obj)
+        /// <summary>
+        /// Called when the camera is changed via <see cref="CameraTracker"/>.  
+        /// Responsible for filtering out invalid states (i.e. caused by manual slider updates or camera animations). 
+        /// </summary>
+        /// <param name="state">The camera state</param>
+        private void OnCameraStateChange(CameraState state)
         {
             _ = OnPingDocument();
 
@@ -157,17 +175,20 @@ namespace GH_Timeline
             }
 
             _ = RecordUndoEvent("Add camera keyframe");
-            Timeline.AddKeyframe(obj, (double)CurrentValue);
+            Timeline.AddKeyframe(state, (double)CurrentValue);
             Attributes.ExpireLayout();
             Instances.ActiveCanvas.Invalidate();
         }
 
+        /// <summary>
+        /// Called when the component is added to the document for the first time i.e. not copy/paste or save/load.
+        /// </summary>
         public void OnFirstAddToDocument()
         {
-            // Default to enabling camera tracking
             AnimateCamera = true;
         }
 
+        /// <inheritdoc />
         public override void RemovedFromDocument(GH_Document document)
         {
             m_cameraTracker?.Dispose();
@@ -179,12 +200,16 @@ namespace GH_Timeline
             base.RemovedFromDocument(document);
         }
 
+        /// <inheritdoc />
         public override void MovedBetweenDocuments(GH_Document oldDocument, GH_Document newDocument)
         {
             RemovedFromDocument(oldDocument);
             AddedToDocument(newDocument);
         }
 
+        /// <summary>
+        /// Called when an object is removed from the document. Responsible for removing associated sequences.
+        /// </summary>
         private void OnDocumentObjectsDeleted(object sender, GH_DocObjectEventArgs e)
         {
             foreach (IGH_DocumentObject obj in e.Objects)
@@ -199,30 +224,36 @@ namespace GH_Timeline
             }
         }
 
+        /// <summary>
+        /// Called when the time is updated by the user / GUI
+        /// </summary>
+        /// <param name="newValue"></param>
         internal void OnTimelineHandleDragged(double newValue)
         {
             SetSliderValue((decimal)newValue);
             ExpireSolution(true);
         }
 
+        /// <summary>
+        /// Called when a keyframe has been updated in a way that would cause a change in the current state i.e. i.e. time, easing.
+        /// </summary>
         internal void OnKeyframeChanged()
         {
             ExpireSolution(true);
         }
 
+        /// <inheritdoc />
         public void InstanceGuidsChanged(SortedDictionary<Guid, Guid> map)
         {
             foreach (KeyValuePair<Guid, Guid> kvp in map)
             {
-                if (Timeline.TryGetSequence(kvp.Key, out Sequence found) && found is ComponentSequence cseq)
-                {
-                    _ = Timeline.RemoveSequence(kvp.Key);
-                    cseq.InstanceGuid = kvp.Value;
-                    Timeline.AddSequence(kvp.Value, cseq);
-                }
+                Timeline.OnSequenceIdChanged(kvp.Key, kvp.Value);
             }
         }
 
+        /// <summary>
+        /// Gets or sets whether there is a camerae sequence in the timeline.
+        /// </summary>
         public bool AnimateCamera
         {
             get => Timeline.ContainsSequence(Timeline.MainCameraSequenceId);
@@ -247,8 +278,11 @@ namespace GH_Timeline
             }
         }
 
-
         private bool m_recording = false;
+
+        /// <summary>
+        /// Gets or sets whether we are currently recording state changes.
+        /// </summary>
         public bool Recording
         {
             get => m_recording;
@@ -266,9 +300,18 @@ namespace GH_Timeline
         /// </summary>
         private readonly HashSet<IGH_DocumentObject> m_expiredObjects = new HashSet<IGH_DocumentObject>();
 
+        /// <summary>
+        /// Caches whether this component was expired at the start of the last solution, and component recording should be skipped.
+        /// </summary>
         private bool m_wasSliderValueChanged = false;
+        /// <summary>
+        /// Caches whether this component was expired at the start of the last solution, and camera recording should be skipped.
+        /// </summary>
         private bool m_cameraSliderValueChanged = false;
 
+        /// <summary>
+        /// While recording, add keyframes for any compatible objects that expired in the last solution.
+        /// </summary>
         private void OnSolutionEndRecordState(object sender, GH_SolutionEventArgs e)
         {
             m_cameraSliderValueChanged = true;
@@ -292,6 +335,10 @@ namespace GH_Timeline
             }
         }
 
+        /// <summary>
+        /// While recording, track which components have expired to record their state.  
+        /// Updates caused by manually changing the slider value are skipped.
+        /// </summary>>
         private void OnSolutionStartRecordState(object sender, GH_SolutionEventArgs e)
         {
             if (!Recording || m_wasSliderValueChanged)
@@ -310,6 +357,10 @@ namespace GH_Timeline
             }
         }
 
+        /// <summary>
+        /// <inheritdoc />
+        /// When this component expires, we also expire any components that exist in the timeline sequences.
+        /// </summary>
         protected override void ExpireDownStreamObjects()
         {
             base.ExpireDownStreamObjects();
@@ -327,12 +378,16 @@ namespace GH_Timeline
             }
         }
 
+        /// <inheritdoc />
         protected override void OnVolatileDataCollected()
         {
             base.OnVolatileDataCollected();
             ValidateComponents();
         }
 
+        /// <summary>
+        /// Shows error messages to the user if something is wrong with their sequences (i.e. tracked component doesn't exist)
+        /// </summary>
         private void ValidateComponents()
         {
             foreach (Sequence seq in Timeline.Sequences.Values)
@@ -348,6 +403,7 @@ namespace GH_Timeline
 
         #region IO
 
+        /// <inheritdoc />
         public override bool Read(GH_IReader reader)
         {
             m_hasDeserialized = true;
@@ -366,6 +422,7 @@ namespace GH_Timeline
             return base.Read(reader);
         }
 
+        /// <inheritdoc />
         public override bool Write(GH_IWriter writer)
         {
             writer.SetString("timeline", Serialization.Serialize(Timeline));

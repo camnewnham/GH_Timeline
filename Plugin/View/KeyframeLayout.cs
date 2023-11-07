@@ -41,7 +41,6 @@ namespace GH_Timeline
         {
             if (m_invalidated)
             {
-                OwnerLayout.Sequence.Invalidate();
                 m_invalidated = false;
                 OwnerLayout.ParentAttributes.Owner.OnKeyframeChanged();
             }

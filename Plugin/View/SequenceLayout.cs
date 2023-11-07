@@ -42,7 +42,7 @@ namespace GH_Timeline
             KeyframeLayouts.Clear();
             _ = (TimelineBounds.Bottom + TimelineBounds.Top) / 2;
 
-            foreach (Keyframe keyframe in Sequence.OrderedKeyframes)
+            foreach (Keyframe keyframe in Sequence.Keyframes)
             {
                 _ = (float)MathUtils.Remap(keyframe.Time, 0, 1, TimelineBounds.Left, TimelineBounds.Right);
                 KeyframeLayout keyframeLayout = new KeyframeLayout(this, keyframe);

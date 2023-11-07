@@ -1,9 +1,14 @@
-﻿using Rhino.Display;
+﻿using Newtonsoft.Json;
+using Rhino.Display;
 using Rhino.Geometry;
 using System;
 
 namespace GH_Timeline
 {
+    /// <summary>
+    /// Serializable class for storing camera state
+    /// </summary>
+    [JsonObject(MemberSerialization = MemberSerialization.OptIn)]
     public struct CameraState : IEquatable<CameraState>
     {
         public const double kEpsilon = 0.00001;
@@ -14,10 +19,15 @@ namespace GH_Timeline
             Perspective
         }
 
+        [JsonProperty("location")]
         public Point3d Location;
+        [JsonProperty("target")]
         public Point3d Target;
+        [JsonProperty("up")]
         public Vector3d Up;
+        [JsonProperty("lens")]
         public double LensLength;
+        [JsonProperty("projection")]
         public CameraProjection Projection;
 
         public CameraState(Point3d location, Point3d target, Vector3d up, double lensLength, CameraProjection projection)
@@ -48,6 +58,9 @@ namespace GH_Timeline
         }
 
 
+        /// <summary>
+        /// Converts the current location and up vectors to a camera rotation
+        /// </summary>
         public double ComputeRotation()
         {
             Vector3d forward = Target - Location;
@@ -62,6 +75,9 @@ namespace GH_Timeline
             return -Vector3d.VectorAngle(cameraPlane.XAxis, newUp, cameraPlane);
         }
 
+        /// <summary>
+        /// Computes the up vector based on a location, target and rotation. Opposite of <see cref="ComputeRotation"/>
+        /// </summary>
         private static Vector3d ComputeUpVector(Point3d location, Point3d target, double rotation)
         {
             Plane plane = new Plane(location, target - location);
@@ -74,6 +90,9 @@ namespace GH_Timeline
             return plane.XAxis;
         }
 
+        /// <summary>
+        /// Gets the projection type of a rhino viewport
+        /// </summary>
         public static CameraProjection GetProjection(RhinoViewport viewport)
         {
             return viewport.IsPerspectiveProjection ? CameraProjection.Perspective :
@@ -81,6 +100,9 @@ namespace GH_Timeline
                     CameraProjection.Parallel;
         }
 
+        /// <summary>
+        /// Applies the state to a Rhino viewport
+        /// </summary>
         public void ApplyToViewport(RhinoViewport viewport)
         {
             SetProjection(viewport);
@@ -93,6 +115,9 @@ namespace GH_Timeline
             }
         }
 
+        /// <summary>
+        /// Sets the projection type of a Rhino viewport
+        /// </summary>
         private void SetProjection(RhinoViewport viewport)
         {
             switch (Projection)
@@ -118,6 +143,9 @@ namespace GH_Timeline
             }
         }
 
+        /// <summary>
+        /// Compares two camera states with a <see cref="kEpsilon"/>
+        /// </summary>
         public bool Equals(CameraState other)
         {
             return Location.EpsilonEquals(other.Location, kEpsilon) &&

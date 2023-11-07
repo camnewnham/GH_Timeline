@@ -14,6 +14,9 @@ using System.Windows.Forms;
 
 namespace GH_Timeline
 {
+    /// <summary>
+    /// Utilities for working with FFMPEG
+    /// </summary>
     internal static class FFmpegUtil
     {
         public const string DOWNLOAD_URL_WINDOWS = "https://github.com/GyanD/codexffmpeg/releases/download/6.0/ffmpeg-6.0-essentials_build.zip";
@@ -27,6 +30,10 @@ namespace GH_Timeline
         public static string ExecutablePath => IsWindows ? Path.Combine(InstallFolder, "ffmpeg-6.0-essentials_build", "bin", "ffmpeg.exe") : Path.Combine(InstallFolder, "ffmpeg");
         public static bool IsInstalled => File.Exists(ExecutablePath);
 
+        /// <summary>
+        /// Downloads and installs ffmpeg (if required) and communicates with the user via the Rhino command line
+        /// </summary>
+        /// <returns>True if the install was successful (or already existing)</returns>
         public static bool Install()
         {
             if (IsInstalled)
@@ -42,7 +49,7 @@ namespace GH_Timeline
 
             try
             {
-                Rhino.RhinoApp.WriteLine("Installing ffmpeg...");
+                RhinoApp.WriteLine("Installing ffmpeg...");
 
                 using (WebClient wc = new WebClient())
                 {
@@ -113,7 +120,9 @@ namespace GH_Timeline
 
                 while (!zipTask.IsCompleted)
                 {
-                    RhinoApp.CommandPrompt = $"Extracting ffmpeg...";
+                    Stopwatch sw = new Stopwatch();
+                    sw.Start();
+                    RhinoApp.CommandPrompt = $"Extracting ffmpeg... " + sw.Elapsed;
                     RhinoApp.Wait();
                     Application.DoEvents();
                     if (GH_Document.IsEscapeKeyDown())
@@ -133,13 +142,13 @@ namespace GH_Timeline
 
                 if (zipTask.IsFaulted)
                 {
-                    Rhino.RhinoApp.WriteLine("An exception occurred while unzipping ffmpeg. Details\n" + zipTask.Exception);
+                    RhinoApp.WriteLine("An exception occurred while unzipping ffmpeg. Details\n" + zipTask.Exception);
                     return false;
                 }
 
                 if (!IsInstalled)
                 {
-                    RhinoApp.Write($"Something went wrong when installing ffmpeg... File not found at {ExecutablePath}");
+                    RhinoApp.WriteLine($"Something went wrong when installing ffmpeg... File not found at {ExecutablePath}");
                     return false;
                 }
 
@@ -182,6 +191,15 @@ namespace GH_Timeline
             throw new Exception($"Too many videos in path {folder}");
         }
 
+        /// <summary>
+        /// Runs ffmpeg via the command line to compile frames into a video frame.
+        /// </summary>
+        /// <param name="folder">The folder containing the video frames</param>
+        /// <param name="fileTemplate">The template for the files. Must be compatible with <see cref="string.Format(string, object)"/>.</param>
+        /// <param name="numFiles">The number of files</param>
+        /// <param name="framerate">The framerate for putting together video frames</param>
+        /// <param name="bitrate">The bitrate for the video x10000 i.e. 192 = 192k</param>
+        /// <returns>The path to the compiled video.</returns>
         public static string Compile(string folder, string fileTemplate, int numFiles, int framerate, int bitrate)
         {
             if (!Install())
@@ -225,11 +243,13 @@ namespace GH_Timeline
 #endif
                     try
                     {
-                        RhinoApp.CommandPrompt = $"Encoding video...";
+                        Stopwatch sw = new Stopwatch();
+                        sw.Start();
                         while (!proc.HasExited)
                         {
                             RhinoApp.Wait();
                             Application.DoEvents();
+                            RhinoApp.CommandPrompt = $"Encoding video... " + sw.Elapsed;
                             if (GH_Document.IsEscapeKeyDown())
                             {
                                 proc.Kill();
@@ -244,7 +264,7 @@ namespace GH_Timeline
 
                     if (proc.ExitCode != 0)
                     {
-                        Rhino.RhinoApp.WriteLine($"Something went wrong while combining video frames... (ffmpeg quit with exit code {proc.ExitCode})");
+                        RhinoApp.WriteLine($"Something went wrong while combining video frames... (ffmpeg quit with exit code {proc.ExitCode})");
                         return null;
                     }
                     else
