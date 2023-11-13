@@ -9,8 +9,7 @@ namespace GH_Timeline
     {
         None = 0,
         Linear = 1,
-        Square = 2,
-        Cubic = 3
+        Exponential = 2
     }
     public static class MathUtils
     {

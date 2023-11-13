@@ -104,15 +104,8 @@ namespace GH_Timeline
                             new PointF(x,y-radius),
                         });
                         break;
-                    case Easing.Square:
+                    case Easing.Exponential:
                         path.AddArc(x - radius, y - radius, radius * 2, radius * 2, 90, 180);
-                        break;
-                    case Easing.Cubic:
-                        path.AddLine(x, y + radius, x - (radius / 2), y + radius);
-                        path.AddArc(x - radius, y, radius, radius, 90, 90);
-                        path.AddLine(x - radius, y + (radius / 2), x - radius, y + (radius / 2));
-                        path.AddArc(x - radius, y - radius, radius, radius, 180, 90);
-                        path.AddLine(x - (radius / 2), y - radius, x, y - radius);
                         break;
                     case Easing.None:
                     default:
@@ -135,12 +128,8 @@ namespace GH_Timeline
                             new PointF(x+radius,y)
                         });
                         break;
-                    case Easing.Square:
+                    case Easing.Exponential:
                         path.AddArc(x - radius, y - radius, radius * 2, radius * 2, 270, 180);
-                        break;
-                    case Easing.Cubic:
-                        path.AddArc(x, y - radius, radius, radius, 270, 90);
-                        path.AddArc(x, y, radius, radius, 0, 90);
                         break;
                     case Easing.None:
                     default:
