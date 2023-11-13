@@ -96,14 +96,14 @@ namespace GH_Timeline
                     int recordedFrameCount = gH_SliderAnimator.StartAnimation();
                     m_recordAnimationViewport = null;
 
-                    int targetFrameCount = Instances.Settings.GetValue("SlAnim:FrameCount", int.MinValue) + 1;
+                    int targetFrameCount = Instances.Settings.GetValue("SlAnim:FrameCount", int.MinValue);
                     string targetFolder = Instances.Settings.GetValue("SlAnim:Folder", "");
                     string targetTemplate = Instances.Settings.GetValue("SlAnim:FileTemplate", "");
 
                     int width = Instances.Settings.GetValue("SlAnim:Width", 640);
                     int height = Instances.Settings.GetValue("SlAnim:Height", 480);
 
-                    if (recordedFrameCount == targetFrameCount)
+                    if (recordedFrameCount >= targetFrameCount)
                     {
                         string videoPath = FFmpegUtil.Compile(targetFolder, targetTemplate, targetFrameCount, 30, (int)(Math.Sqrt(width * height) / Math.Sqrt(1920 * 1080) * Bitrate1920x1080));
                         if (videoPath != null)
