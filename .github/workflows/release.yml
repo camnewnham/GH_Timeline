@@ -26,6 +26,7 @@ jobs:
       working-directory: ./Plugin/bin/Release
       run: |
         ..\..\..\yak build --version ${{ github.ref_name }}
+        Rename-Item -Path (dir *.yak).Name -NewName ((dir *.yak).Name -replace '-rh.+\.yak','-any-any.yak')
         ..\..\..\yak push (dir *.yak).Name
       env:
         YAK_TOKEN: ${{ secrets.YAK_TOKEN }}
