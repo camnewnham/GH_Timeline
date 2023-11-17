@@ -1,3 +1,5 @@
+![Yak Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fyak.rhino3d.com%2Fpackages%2FTimeline&query=%24.version&suffix=%20&logo=Rhinoceros&label=Yak)
+
 # Timeline for Grasshopper
 
 > Timeline is a simple keyframe editor for creating animations in Grasshopper.
