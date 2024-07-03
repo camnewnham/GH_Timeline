@@ -2,9 +2,13 @@ using GH_IO.Serialization;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
+using Rhino;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace GH_Timeline
@@ -85,7 +89,7 @@ namespace GH_Timeline
                 Instances.ActiveCanvas.Invalidate();
             }, true, Recording);
 
-            _ = Menu_AppendItem(menu, "Export Animation...", (obj, arg) =>
+            _ = Menu_AppendItem(menu, "Export Animation...", async (obj, arg) =>
             {
                 Recording = false;
                 GH_SliderAnimator gH_SliderAnimator = new GH_SliderAnimator(this);
@@ -105,13 +109,48 @@ namespace GH_Timeline
 
                     if (recordedFrameCount >= targetFrameCount)
                     {
-                        string videoPath = FFmpegUtil.Compile(targetFolder, targetTemplate, targetFrameCount, 30, (int)(Math.Sqrt(width * height) / Math.Sqrt(1920 * 1080) * Bitrate1920x1080));
-                        if (videoPath != null)
+                        try
                         {
-                            _ = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(videoPath)
+                            CancellationTokenSource cts = new CancellationTokenSource();
+                            Task<string> ffmpegTask = FFmpegUtil.Compile(targetFolder, targetTemplate, targetFrameCount, 30, (int)(Math.Sqrt(width * height) / Math.Sqrt(1920 * 1080) * Bitrate1920x1080), cts.Token);
+
+                            Stopwatch sw = new Stopwatch();
+                            sw.Start();
+
+                            while (!ffmpegTask.IsCompleted)
+                            {
+                                RhinoApp.Wait();
+                                Application.DoEvents();
+                                RhinoApp.CommandPrompt = $"Encoding video... " + sw.Elapsed;
+                                if (GH_Document.IsEscapeKeyDown())
+                                {
+                                    cts.Cancel();
+                                    throw new OperationCanceledException("Operation cancelled by escape key press.");
+                                }
+                            }
+
+                            string videoPath = await ffmpegTask;
+
+                            RhinoApp.WriteLine("Saved video: " + videoPath);
+
+                            _ = Process.Start(new System.Diagnostics.ProcessStartInfo(videoPath)
                             {
                                 UseShellExecute = true
                             });
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            Rhino.RhinoApp.WriteLine("Cancelled.");
+                        }
+                        catch (Exception ex)
+                        {
+                            Rhino.UI.Dialogs.ShowMessage("Something went wrong while compiling the animation. If issues persist, please create an issue on github with the Rhino command line output.",
+                                "Animation Error");
+                            Rhino.RhinoApp.WriteLine(ex.ToString());
+                        }
+                        finally
+                        {
+                            RhinoApp.CommandPrompt = string.Empty;
                         }
                     }
                 }

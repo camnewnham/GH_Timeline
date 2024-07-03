@@ -199,12 +199,13 @@ namespace GH_Timeline
         /// <param name="numFiles">The number of files</param>
         /// <param name="framerate">The framerate for putting together video frames</param>
         /// <param name="bitrate">The bitrate for the video x10000 i.e. 192 = 192k</param>
+        /// <param name="token">A token to cancel the compilation task.</param>
         /// <returns>The path to the compiled video.</returns>
-        public static string Compile(string folder, string fileTemplate, int numFiles, int framerate, int bitrate)
+        public static async Task<string> Compile(string folder, string fileTemplate, int numFiles, int framerate, int bitrate, CancellationToken token)
         {
             if (!Install())
             {
-                return null;
+                throw new NotInstalledException();
             }
 
             IEnumerable<string> EnumerateFiles()
@@ -228,53 +229,55 @@ namespace GH_Timeline
                 proc.StartInfo.Arguments = $"-f concat -r {framerate} -i \"{concatFileName}\" -vcodec libx264 -pix_fmt yuv420p -b:v {bitrate}k \"{outputFileName}\"";
                 proc.StartInfo.UseShellExecute = false;
                 proc.StartInfo.CreateNoWindow = true;
-#if DEBUG
+
+                List<string> stdOut = new List<string>();
                 proc.StartInfo.RedirectStandardError = true;
                 proc.StartInfo.RedirectStandardOutput = true;
-                proc.ErrorDataReceived += (sendingProcess, errorLine) => RhinoApp.WriteLine(errorLine.Data);
-                proc.OutputDataReceived += (sendingProcess, dataLine) => RhinoApp.WriteLine(dataLine.Data);
-#endif
-
-                if (proc.Start())
+                proc.ErrorDataReceived += (sendingProcess, errorLine) =>
                 {
 #if DEBUG
-                    proc.BeginErrorReadLine();
-                    proc.BeginOutputReadLine();
+                    RhinoApp.WriteLine(errorLine.Data);
 #endif
-                    try
-                    {
-                        Stopwatch sw = new Stopwatch();
-                        sw.Start();
-                        while (!proc.HasExited)
-                        {
-                            RhinoApp.Wait();
-                            Application.DoEvents();
-                            RhinoApp.CommandPrompt = $"Encoding video... " + sw.Elapsed;
-                            if (GH_Document.IsEscapeKeyDown())
-                            {
-                                proc.Kill();
-                                return null;
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        RhinoApp.CommandPrompt = string.Empty;
-                    }
+                    stdOut.Add(errorLine.Data);
+                };
+                proc.OutputDataReceived += (sendingProcess, dataLine) =>
+                {
+#if DEBUG
+                    RhinoApp.WriteLine(dataLine.Data);
+#endif
+                    stdOut.Add(dataLine.Data);
+                };
 
-                    if (proc.ExitCode != 0)
-                    {
-                        RhinoApp.WriteLine($"Something went wrong while combining video frames... (ffmpeg quit with exit code {proc.ExitCode})");
-                        return null;
-                    }
-                    else
-                    {
-                        string fullPath = Path.Combine(folder, outputFileName);
-                        RhinoApp.WriteLine("Saved video: " + fullPath);
-                        return fullPath;
-                    }
+                if (!proc.Start())
+                {
+                    throw new FFmpegStartException();
                 }
-                return null;
+
+                proc.BeginErrorReadLine();
+                proc.BeginOutputReadLine();
+
+                try
+                {
+                    await Task.Run(() => proc.WaitForExit(), token);
+                }
+                catch (OperationCanceledException ex)
+                {
+                    if (!proc.HasExited)
+                    {
+                        proc.Kill();
+                    }
+                    throw ex;
+                }
+
+                if (proc.ExitCode != 0)
+                {
+                    throw new FFmpegExecutionException(proc.ExitCode, stdOut);
+                }
+                else
+                {
+                    string fullPath = Path.Combine(folder, outputFileName);
+                    return fullPath;
+                }
             }
             finally
             {
