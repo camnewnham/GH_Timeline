@@ -225,7 +225,12 @@ namespace GH_Timeline
         public override GH_ObjectResponse RespondToMouseMove(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
             m_inputForwarder.InputHandlers = InputHandlers();
-            return m_inputForwarder.RespondToMouseMove(sender, e);
+            GH_ObjectResponse response = m_inputForwarder.RespondToMouseMove(sender, e);
+            if (response == GH_ObjectResponse.Ignore)
+            {
+                return base.RespondToMouseMove(sender, e);
+            }
+            return response;
         }
 
         public override GH_ObjectResponse RespondToMouseUp(GH_Canvas sender, GH_CanvasMouseEvent e)
@@ -249,7 +254,12 @@ namespace GH_Timeline
         public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
             m_inputForwarder.InputHandlers = InputHandlers();
-            return m_inputForwarder.RespondToMouseDown(sender, e);
+            GH_ObjectResponse response = m_inputForwarder.RespondToMouseDown(sender, e);
+            if (response == GH_ObjectResponse.Ignore)
+            {
+                return base.RespondToMouseDown(sender, e);
+            }
+            return response;
         }
 
         public override GH_ObjectResponse RespondToMouseDoubleClick(GH_Canvas sender, GH_CanvasMouseEvent e)
