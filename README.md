@@ -7,7 +7,8 @@
 
 ## Features
 
-- Double click to record 
+- Double click to record
+- Press tab to toggle preview
 - Create animations directly to `.mp4` video files
 - Animate multiple components at once
 - Animate the camera
@@ -23,7 +24,8 @@
 3. Move the time slider and adjust your document and camera to the desired state.
 4. Repeat from (2).
 5. Double click the timeline to stop tracking.
-6. Right click to export your animation.
+6. Press tab to preview your animation in the viewport
+7. Right click to export your animation.
 
 ![animate_slider](https://github.com/camnewnham/GH_Timeline/assets/19278856/c9b099ad-5d2e-403b-80f1-6d04491fc531)
 
