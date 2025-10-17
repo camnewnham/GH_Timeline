@@ -168,6 +168,10 @@ namespace GH_Timeline
         /// </summary>
         private CameraTracker m_cameraTracker;
 
+        /// <summary>
+        /// Player used to preview the timeline animation
+        /// </summary>
+        private PreviewPlayer m_previewPlayer;
 
         /// <inheritdoc />
         public override void AddedToDocument(GH_Document document)
@@ -185,8 +189,8 @@ namespace GH_Timeline
 
             m_cameraTracker = new CameraTracker(this);
             m_cameraTracker.OnCameraStateChanged += OnCameraStateChange;
-
             Timeline.AddedToDocument(document);
+            m_previewPlayer = new PreviewPlayer(this);
         }
 
         /// <summary>
@@ -242,6 +246,8 @@ namespace GH_Timeline
             document.SolutionStart -= OnSolutionStartRecordState;
             document.ObjectsAdded -= OnDocumentObjectsAdded;
             document.ObjectsDeleted -= OnDocumentObjectsDeleted;
+            m_previewPlayer?.Dispose();
+            m_previewPlayer = null;
             base.RemovedFromDocument(document);
         }
 

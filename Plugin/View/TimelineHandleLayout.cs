@@ -28,7 +28,7 @@ namespace GH_Timeline
 
             Bounds = new RectangleF(CurrentTimeXPosition - 2, timelineBounds.Y, 4, timelineBounds.Height);
 
-            TextBounds = new RectangleF(CurrentTimeXPosition - (24 / 2f), timelineBounds.Top - 22f, 24, 12);
+            TextBounds = new RectangleF(CurrentTimeXPosition - (16), timelineBounds.Top - 28f, 32, 16);
         }
 
         public void Render(Graphics graphics)
