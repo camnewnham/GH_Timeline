@@ -4,7 +4,6 @@
       "commandName": "Executable",
       "executablePath": "C:\\Program Files\\Rhino 8\\System\\Rhino.exe",
       "commandLineArgs": "/nosplash /runscript=\"Grasshopper\" /netfx",
-      "nativeDebugging": true,
       "environmentVariables": {
         "RHINO_PACKAGE_DIRS": "$(ProjectDir)\\bin\\$(Configuration)"
       }

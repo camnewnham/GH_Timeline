@@ -201,7 +201,7 @@ namespace GH_Timeline
         /// <param name="bitrate">The bitrate for the video x10000 i.e. 192 = 192k</param>
         /// <param name="token">A token to cancel the compilation task.</param>
         /// <returns>The path to the compiled video.</returns>
-        public static async Task<string> Compile(string folder, string fileTemplate, int numFiles, int framerate, int bitrate, CancellationToken token)
+        public static async Task<string> Compile(string folder, string fileTemplate, int numFiles, float framerate, int bitrate, CancellationToken token)
         {
             if (!Install())
             {

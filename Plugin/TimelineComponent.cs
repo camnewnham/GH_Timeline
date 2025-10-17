@@ -83,6 +83,10 @@ namespace GH_Timeline
                 _ = Menu_AppendSeparator(menu);
             }
 
+            _ = FormUtils.Menu_AppendNumericUpDown(menu, "Frames Per Second", (decimal)Timeline.FrameRate, 2, (obj, arg) => Timeline.FrameRate = (float)arg.Value, 1, 300);
+            _ = FormUtils.Menu_AppendNumericUpDown(menu, "Frame Count", Timeline.FrameCount, 0, (obj, arg) => Timeline.FrameCount = (int)arg.Value, 0);
+            _ = Menu_AppendSeparator(menu);
+
             _ = Menu_AppendItem(menu, Recording ? "Tracking..." : "Track Changes", (obj, arg) =>
             {
                 Recording = !Recording;
@@ -92,7 +96,9 @@ namespace GH_Timeline
             _ = Menu_AppendItem(menu, "Export Animation...", async (obj, arg) =>
             {
                 Recording = false;
+
                 GH_SliderAnimator gH_SliderAnimator = new GH_SliderAnimator(this);
+                gH_SliderAnimator.FrameCount = Timeline.FrameCount;
                 if (gH_SliderAnimator.SetupAnimationProperties())
                 {
                     Recording = false;
@@ -112,7 +118,7 @@ namespace GH_Timeline
                         try
                         {
                             CancellationTokenSource cts = new CancellationTokenSource();
-                            Task<string> ffmpegTask = FFmpegUtil.Compile(targetFolder, targetTemplate, targetFrameCount, 30, (int)(Math.Sqrt(width * height) / Math.Sqrt(1920 * 1080) * Bitrate1920x1080), cts.Token);
+                            Task<string> ffmpegTask = FFmpegUtil.Compile(targetFolder, targetTemplate, targetFrameCount, Timeline.FrameRate, (int)(Math.Sqrt(width * height) / Math.Sqrt(1920 * 1080) * Bitrate1920x1080), cts.Token);
 
                             Stopwatch sw = new Stopwatch();
                             sw.Start();

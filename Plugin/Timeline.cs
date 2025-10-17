@@ -25,6 +25,12 @@ namespace GH_Timeline
         [JsonProperty("sequences")]
         public Dictionary<Guid, Sequence> Sequences { get; private set; } = new Dictionary<Guid, Sequence>();
 
+        [JsonProperty("frameRate")]
+        public float FrameRate = 30;
+
+        [JsonProperty("frameCount")]
+        public int FrameCount = 100;
+
         /// <summary>
         /// The number of sequences in this timeline.
         /// </summary>
